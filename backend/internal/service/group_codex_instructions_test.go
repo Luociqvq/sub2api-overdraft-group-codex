@@ -26,9 +26,12 @@ func TestApplyGroupCodexInstructions(t *testing.T) {
 			name: "chat prepends system message", endpoint: "chat_completions",
 			body: `{"model":"gpt-5","messages":[{"role":"user","content":"hi"}]}`,
 			assert: func(t *testing.T, body map[string]any) {
-				messages := body["messages"].([]any)
-				require.Equal(t, "system", messages[0].(map[string]any)["role"])
-				require.Equal(t, "group rules", messages[0].(map[string]any)["content"])
+				messages, ok := body["messages"].([]any)
+				require.True(t, ok)
+				systemMessage, ok := messages[0].(map[string]any)
+				require.True(t, ok)
+				require.Equal(t, "system", systemMessage["role"])
+				require.Equal(t, "group rules", systemMessage["content"])
 			},
 		},
 		{
