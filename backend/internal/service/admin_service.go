@@ -268,6 +268,9 @@ type CreateGroupInput struct {
 	RequirePrivacySet           bool
 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig
 	ModelsListConfig            GroupModelsListConfig
+	// 分组级 Codex 指令注入配置。
+	CodexInstructionsEnabled bool
+	CodexInstructions        string
 	// RPMLimit 分组 RPM 上限（0 = 不限制）
 	RPMLimit int
 	// MaxReasoningEffort OpenAI/Codex 请求的推理强度上限，空字符串表示不限制。
@@ -343,6 +346,9 @@ type UpdateGroupInput struct {
 	RequirePrivacySet           *bool
 	MessagesDispatchModelConfig *OpenAIMessagesDispatchModelConfig
 	ModelsListConfig            *GroupModelsListConfig
+	// nil 表示不修改；正文会在 service 层去除首尾空白。
+	CodexInstructionsEnabled *bool
+	CodexInstructions        *string
 	// RPMLimit 分组 RPM 上限（0 = 不限制），nil 表示未提供不改动。
 	RPMLimit *int
 	// MaxReasoningEffort 空字符串表示清除上限；nil 表示未提供不改动。

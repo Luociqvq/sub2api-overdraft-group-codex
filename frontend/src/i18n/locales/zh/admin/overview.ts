@@ -1025,6 +1025,13 @@ export default {
           '留空使用默认价 $0.01/次（官方定价 $10/1000 次）；填 0 表示免费。实际扣费会叠加分组费率倍数。',
         finalPricePreview: '应用当前倍率后的单次价格：{price}'
       },
+      codexInstructions: {
+        title: '分组级 Codex 指令',
+        enabled: '启用指令注入',
+        label: 'Codex 指令内容',
+        placeholder: '输入仅对当前分组生效的系统指令',
+        hint: '仅注入绑定此分组的 /v1/responses、/v1/chat/completions 和 /v1/messages 请求，不影响其他分组。'
+      },
       peakRate: {
         enable: '启用高峰倍率',
         peakStart: '高峰开始',

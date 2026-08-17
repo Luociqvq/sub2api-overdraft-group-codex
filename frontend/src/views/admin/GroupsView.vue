@@ -1493,6 +1493,42 @@
           </div>
         </div>
 
+        <!-- 分组级 Codex 指令（仅 openai 平台） -->
+        <div
+          v-if="createForm.platform === 'openai'"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            {{ t("admin.groups.codexInstructions.title") }}
+          </h4>
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-sm text-gray-600 dark:text-gray-400">
+              {{ t("admin.groups.codexInstructions.enabled") }}
+            </label>
+            <button
+              type="button"
+              @click="createForm.codex_instructions_enabled = !createForm.codex_instructions_enabled"
+              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              :class="createForm.codex_instructions_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
+              :aria-pressed="createForm.codex_instructions_enabled"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                :class="createForm.codex_instructions_enabled ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+          <textarea
+            v-model="createForm.codex_instructions"
+            rows="5"
+            class="input mt-3 min-h-28 resize-y font-mono text-sm"
+            :placeholder="t('admin.groups.codexInstructions.placeholder')"
+            :aria-label="t('admin.groups.codexInstructions.label')"
+          />
+          <p class="input-hint">
+            {{ t("admin.groups.codexInstructions.hint") }}
+          </p>
+        </div>
 
         <div class="border-t border-gray-200 pt-4 mt-4 dark:border-dark-400">
           <div class="flex items-start justify-between gap-4">
@@ -3213,6 +3249,43 @@
               }}
             </div>
           </div>
+        </div>
+
+        <!-- 分组级 Codex 指令（仅 openai 平台） -->
+        <div
+          v-if="editForm.platform === 'openai'"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            {{ t("admin.groups.codexInstructions.title") }}
+          </h4>
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-sm text-gray-600 dark:text-gray-400">
+              {{ t("admin.groups.codexInstructions.enabled") }}
+            </label>
+            <button
+              type="button"
+              @click="editForm.codex_instructions_enabled = !editForm.codex_instructions_enabled"
+              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              :class="editForm.codex_instructions_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
+              :aria-pressed="editForm.codex_instructions_enabled"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                :class="editForm.codex_instructions_enabled ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+          <textarea
+            v-model="editForm.codex_instructions"
+            rows="5"
+            class="input mt-3 min-h-28 resize-y font-mono text-sm"
+            :placeholder="t('admin.groups.codexInstructions.placeholder')"
+            :aria-label="t('admin.groups.codexInstructions.label')"
+          />
+          <p class="input-hint">
+            {{ t("admin.groups.codexInstructions.hint") }}
+          </p>
         </div>
 
 
@@ -5068,6 +5141,8 @@ const createForm = reactive({
   // OpenAI Messages 调度配置（仅 openai 平台使用）
   allow_messages_dispatch: false,
   allow_live: false,
+  codex_instructions_enabled: false,
+  codex_instructions: "",
   opus_mapped_model: createMessagesDispatchDefaults.opus_mapped_model,
   sonnet_mapped_model: createMessagesDispatchDefaults.sonnet_mapped_model,
   haiku_mapped_model: createMessagesDispatchDefaults.haiku_mapped_model,
@@ -5429,6 +5504,8 @@ const editForm = reactive({
   // OpenAI Messages 调度配置（仅 openai 平台使用）
   allow_messages_dispatch: false,
   allow_live: false,
+  codex_instructions_enabled: false,
+  codex_instructions: "",
   default_mapped_model: '',
   opus_mapped_model: editMessagesDispatchDefaults.opus_mapped_model,
   sonnet_mapped_model: editMessagesDispatchDefaults.sonnet_mapped_model,
@@ -5881,6 +5958,8 @@ const closeCreateModal = () => {
   createForm.fallback_group_id_on_invalid_request = null;
   resetMessagesDispatchFormState(createForm);
   createForm.allow_live = false;
+  createForm.codex_instructions_enabled = false;
+  createForm.codex_instructions = "";
   createForm.require_oauth_only = false;
   createForm.require_privacy_set = false;
   createForm.supported_model_scopes = ["claude", "gemini_text", "gemini_image"];
@@ -6138,6 +6217,9 @@ const handleEdit = async (group: AdminGroup) => {
     group.allow_messages_dispatch ||
     messagesDispatchFormState.allow_messages_dispatch;
   editForm.allow_live = group.allow_live ?? false;
+  editForm.codex_instructions_enabled =
+    group.codex_instructions_enabled ?? false;
+  editForm.codex_instructions = group.codex_instructions ?? "";
   editForm.opus_mapped_model = messagesDispatchFormState.opus_mapped_model;
   editForm.sonnet_mapped_model = messagesDispatchFormState.sonnet_mapped_model;
   editForm.haiku_mapped_model = messagesDispatchFormState.haiku_mapped_model;
@@ -6205,6 +6287,8 @@ const closeEditModal = () => {
   editForm.audio_stt_price_per_hour = null;
   resetMessagesDispatchFormState(editForm);
   editForm.allow_live = false;
+  editForm.codex_instructions_enabled = false;
+  editForm.codex_instructions = "";
   resetModelsListState(editModelsListState);
 };
 

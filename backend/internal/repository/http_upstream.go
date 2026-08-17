@@ -179,6 +179,41 @@ func NewHTTPUpstream(cfg *config.Config) service.HTTPUpstream {
 	}
 }
 
+// ResetConnections removes the cached transport selected for this
+// account/proxy and closes its idle connections. Active requests keep their
+// old client until their response bodies close, while the next request gets a
+// newly constructed transport and therefore a fresh upstream connection.
+func (s *httpUpstreamService) ResetConnections(proxyURL string, accountID int64) {
+	if s == nil {
+		return
+	}
+	proxyKey, _, err := normalizeProxyURL(proxyURL)
+	if err != nil {
+		return
+	}
+	isolation := s.getIsolationMode()
+	accountPrefix := fmt.Sprintf("account:%d", accountID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, entry := range s.clients {
+		baseKey := strings.TrimPrefix(key, "tls:")
+		matches := false
+		switch isolation {
+		case config.ConnectionPoolIsolationAccount:
+			matches = baseKey == accountPrefix || strings.HasPrefix(baseKey, accountPrefix+"|proto:")
+		case config.ConnectionPoolIsolationAccountProxy:
+			prefix := accountPrefix + "|proxy:" + proxyKey
+			matches = baseKey == prefix || strings.HasPrefix(baseKey, prefix+"|proto:")
+		default:
+			matches = entry != nil && entry.proxyKey == proxyKey
+		}
+		if matches {
+			s.removeClientLocked(key, entry)
+		}
+	}
+}
+
 // Do 执行 HTTP 请求
 // 根据隔离策略获取或创建客户端，并跟踪请求生命周期
 //

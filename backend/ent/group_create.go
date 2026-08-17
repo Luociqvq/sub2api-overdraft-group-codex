@@ -774,6 +774,34 @@ func (_c *GroupCreate) SetNillableModelsListConfig(v *domain.GroupModelsListConf
 	return _c
 }
 
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (_c *GroupCreate) SetCodexInstructionsEnabled(v bool) *GroupCreate {
+	_c.mutation.SetCodexInstructionsEnabled(v)
+	return _c
+}
+
+// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableCodexInstructionsEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetCodexInstructionsEnabled(*v)
+	}
+	return _c
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (_c *GroupCreate) SetCodexInstructions(v string) *GroupCreate {
+	_c.mutation.SetCodexInstructions(v)
+	return _c
+}
+
+// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableCodexInstructions(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetCodexInstructions(*v)
+	}
+	return _c
+}
+
 // SetRpmLimit sets the "rpm_limit" field.
 func (_c *GroupCreate) SetRpmLimit(v int) *GroupCreate {
 	_c.mutation.SetRpmLimit(v)
@@ -1115,6 +1143,14 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultModelsListConfig
 		_c.mutation.SetModelsListConfig(v)
 	}
+	if _, ok := _c.mutation.CodexInstructionsEnabled(); !ok {
+		v := group.DefaultCodexInstructionsEnabled
+		_c.mutation.SetCodexInstructionsEnabled(v)
+	}
+	if _, ok := _c.mutation.CodexInstructions(); !ok {
+		v := group.DefaultCodexInstructions
+		_c.mutation.SetCodexInstructions(v)
+	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		v := group.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
@@ -1305,6 +1341,12 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.ModelsListConfig(); !ok {
 		return &ValidationError{Name: "models_list_config", err: errors.New(`ent: missing required field "Group.models_list_config"`)}
+	}
+	if _, ok := _c.mutation.CodexInstructionsEnabled(); !ok {
+		return &ValidationError{Name: "codex_instructions_enabled", err: errors.New(`ent: missing required field "Group.codex_instructions_enabled"`)}
+	}
+	if _, ok := _c.mutation.CodexInstructions(); !ok {
+		return &ValidationError{Name: "codex_instructions", err: errors.New(`ent: missing required field "Group.codex_instructions"`)}
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
@@ -1579,6 +1621,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ModelsListConfig(); ok {
 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
 		_node.ModelsListConfig = value
+	}
+	if value, ok := _c.mutation.CodexInstructionsEnabled(); ok {
+		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
+		_node.CodexInstructionsEnabled = value
+	}
+	if value, ok := _c.mutation.CodexInstructions(); ok {
+		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
+		_node.CodexInstructions = value
 	}
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
@@ -2675,6 +2725,30 @@ func (u *GroupUpsert) SetModelsListConfig(v domain.GroupModelsListConfig) *Group
 // UpdateModelsListConfig sets the "models_list_config" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateModelsListConfig() *GroupUpsert {
 	u.SetExcluded(group.FieldModelsListConfig)
+	return u
+}
+
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (u *GroupUpsert) SetCodexInstructionsEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldCodexInstructionsEnabled, v)
+	return u
+}
+
+// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateCodexInstructionsEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldCodexInstructionsEnabled)
+	return u
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (u *GroupUpsert) SetCodexInstructions(v string) *GroupUpsert {
+	u.Set(group.FieldCodexInstructions, v)
+	return u
+}
+
+// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateCodexInstructions() *GroupUpsert {
+	u.SetExcluded(group.FieldCodexInstructions)
 	return u
 }
 
@@ -3884,6 +3958,34 @@ func (u *GroupUpsertOne) SetModelsListConfig(v domain.GroupModelsListConfig) *Gr
 func (u *GroupUpsertOne) UpdateModelsListConfig() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateModelsListConfig()
+	})
+}
+
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (u *GroupUpsertOne) SetCodexInstructionsEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCodexInstructionsEnabled(v)
+	})
+}
+
+// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateCodexInstructionsEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCodexInstructionsEnabled()
+	})
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (u *GroupUpsertOne) SetCodexInstructions(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCodexInstructions(v)
+	})
+}
+
+// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateCodexInstructions() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCodexInstructions()
 	})
 }
 
@@ -5274,6 +5376,34 @@ func (u *GroupUpsertBulk) SetModelsListConfig(v domain.GroupModelsListConfig) *G
 func (u *GroupUpsertBulk) UpdateModelsListConfig() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateModelsListConfig()
+	})
+}
+
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (u *GroupUpsertBulk) SetCodexInstructionsEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCodexInstructionsEnabled(v)
+	})
+}
+
+// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateCodexInstructionsEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCodexInstructionsEnabled()
+	})
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (u *GroupUpsertBulk) SetCodexInstructions(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetCodexInstructions(v)
+	})
+}
+
+// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateCodexInstructions() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateCodexInstructions()
 	})
 }
 

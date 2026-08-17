@@ -630,6 +630,8 @@ export interface AdminGroup extends Group {
   // OpenAI Messages 调度配置（仅 openai 平台使用）
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
+  codex_instructions_enabled?: boolean
+  codex_instructions?: string
   models_list_config?: ModelsListConfig
 
   // 分组排序
@@ -808,6 +810,8 @@ export interface CreateGroupRequest {
   allow_live?: boolean
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
+  codex_instructions_enabled?: boolean
+  codex_instructions?: string
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number
@@ -870,6 +874,8 @@ export interface UpdateGroupRequest {
   allow_live?: boolean
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
+  codex_instructions_enabled?: boolean
+  codex_instructions?: string
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number

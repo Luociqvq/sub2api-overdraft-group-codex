@@ -1059,6 +1059,34 @@ func (_u *GroupUpdate) SetNillableModelsListConfig(v *domain.GroupModelsListConf
 	return _u
 }
 
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (_u *GroupUpdate) SetCodexInstructionsEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetCodexInstructionsEnabled(v)
+	return _u
+}
+
+// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableCodexInstructionsEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetCodexInstructionsEnabled(*v)
+	}
+	return _u
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (_u *GroupUpdate) SetCodexInstructions(v string) *GroupUpdate {
+	_u.mutation.SetCodexInstructions(v)
+	return _u
+}
+
+// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableCodexInstructions(v *string) *GroupUpdate {
+	if v != nil {
+		_u.SetCodexInstructions(*v)
+	}
+	return _u
+}
+
 // SetRpmLimit sets the "rpm_limit" field.
 func (_u *GroupUpdate) SetRpmLimit(v int) *GroupUpdate {
 	_u.mutation.ResetRpmLimit()
@@ -1811,6 +1839,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.ModelsListConfig(); ok {
 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.CodexInstructionsEnabled(); ok {
+		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.CodexInstructions(); ok {
+		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
@@ -3180,6 +3214,34 @@ func (_u *GroupUpdateOne) SetNillableModelsListConfig(v *domain.GroupModelsListC
 	return _u
 }
 
+// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
+func (_u *GroupUpdateOne) SetCodexInstructionsEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetCodexInstructionsEnabled(v)
+	return _u
+}
+
+// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableCodexInstructionsEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetCodexInstructionsEnabled(*v)
+	}
+	return _u
+}
+
+// SetCodexInstructions sets the "codex_instructions" field.
+func (_u *GroupUpdateOne) SetCodexInstructions(v string) *GroupUpdateOne {
+	_u.mutation.SetCodexInstructions(v)
+	return _u
+}
+
+// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableCodexInstructions(v *string) *GroupUpdateOne {
+	if v != nil {
+		_u.SetCodexInstructions(*v)
+	}
+	return _u
+}
+
 // SetRpmLimit sets the "rpm_limit" field.
 func (_u *GroupUpdateOne) SetRpmLimit(v int) *GroupUpdateOne {
 	_u.mutation.ResetRpmLimit()
@@ -3962,6 +4024,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.ModelsListConfig(); ok {
 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.CodexInstructionsEnabled(); ok {
+		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.CodexInstructions(); ok {
+		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)

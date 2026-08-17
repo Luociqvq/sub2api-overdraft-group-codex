@@ -67,6 +67,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
+	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "chat_completions", apiKey.Group); injectErr != nil {
+		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
+		return
+	} else if changed {
+		body = injected
+	}
 
 	// Extract model and stream
 	modelResult := gjson.GetBytes(body, "model")

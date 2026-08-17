@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 19 // v19: group search/audio/video_model_prices billing fields (force refresh of pre-fix snapshots)
+const apiKeyAuthSnapshotVersion = 20 // v20: group-scoped Codex instructions
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -418,6 +418,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			DefaultMappedModel:              apiKey.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:     apiKey.Group.MessagesDispatchModelConfig,
 			ModelsListConfig:                apiKey.Group.ModelsListConfig,
+			CodexInstructionsEnabled:        apiKey.Group.CodexInstructionsEnabled,
+			CodexInstructions:               apiKey.Group.CodexInstructions,
 			RPMLimit:                        apiKey.Group.RPMLimit,
 			MaxReasoningEffort:              apiKey.Group.MaxReasoningEffort,
 			ReasoningEffortMappings:         apiKey.Group.ReasoningEffortMappings,
@@ -513,6 +515,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			DefaultMappedModel:              snapshot.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:     snapshot.Group.MessagesDispatchModelConfig,
 			ModelsListConfig:                snapshot.Group.ModelsListConfig,
+			CodexInstructionsEnabled:        snapshot.Group.CodexInstructionsEnabled,
+			CodexInstructions:               snapshot.Group.CodexInstructions,
 			RPMLimit:                        snapshot.Group.RPMLimit,
 			MaxReasoningEffort:              snapshot.Group.MaxReasoningEffort,
 			ReasoningEffortMappings:         snapshot.Group.ReasoningEffortMappings,

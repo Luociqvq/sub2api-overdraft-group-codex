@@ -22,3 +22,12 @@ type HTTPUpstream interface {
 	// 支持按账号绑定的数据库 profile 或内置默认 profile。
 	DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error)
 }
+
+// HTTPUpstreamConnectionResetter is an optional capability implemented by the
+// production upstream transport. Callers use it before a bounded reconnect so
+// the replay cannot immediately reuse the connection that returned the
+// connection-scoped failure. Test doubles and alternative transports do not
+// need to implement it.
+type HTTPUpstreamConnectionResetter interface {
+	ResetConnections(proxyURL string, accountID int64)
+}

@@ -1,0 +1,3 @@
+ALTER TABLE groups
+    ADD COLUMN IF NOT EXISTS codex_instructions_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS codex_instructions TEXT NOT NULL DEFAULT '';

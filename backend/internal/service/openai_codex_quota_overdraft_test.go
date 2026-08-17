@@ -3,15 +3,33 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+type codexQuotaOverdraftReconnectUpstream struct {
+	httpUpstreamRecorder
+	resetCalls     int
+	resetProxyURL  string
+	resetAccountID int64
+}
+
+func (u *codexQuotaOverdraftReconnectUpstream) ResetConnections(proxyURL string, accountID int64) {
+	u.resetCalls++
+	u.resetProxyURL = proxyURL
+	u.resetAccountID = accountID
+}
 
 func TestCodexQuotaOverdraftInjection(t *testing.T) {
 	t.Cleanup(func() { SetCodexQuotaOverdraftEnabled(false) })
@@ -37,6 +55,67 @@ func TestCodexQuotaOverdraftInjection(t *testing.T) {
 
 	again := svc.prepareCodexQuotaOverdraftBody(ctx, oauth, false, updated)
 	require.Equal(t, string(updated), string(again), "重复处理不能再次注入")
+}
+
+func TestCodexQuotaOverdraftHeaderless429ReconnectsOnFreshTransport(t *testing.T) {
+	t.Cleanup(func() { SetCodexQuotaOverdraftEnabled(false) })
+	SetCodexQuotaOverdraftEnabled(true)
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-5.6-sol","stream":false,"input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"continue"}]}]}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	upstream := &codexQuotaOverdraftReconnectUpstream{httpUpstreamRecorder: httpUpstreamRecorder{responses: []*http.Response{
+		{
+			StatusCode: http.StatusTooManyRequests,
+			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"req-429"}},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"rate_limit_error","message":"try again"}}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"req-ok"}},
+			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_reconnected","status":"completed","model":"gpt-5.6-sol","output":[],"usage":{"input_tokens":1,"output_tokens":1}}`)),
+		},
+	}}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{Gateway: config.GatewayConfig{CodexQuotaOverdraftEnabled: true}},
+		httpUpstream: upstream,
+	}
+	account := &Account{
+		ID: 91, Name: "reconnect", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+		Status:      StatusActive, Schedulable: true,
+	}
+
+	result, err := svc.Forward(WithCodexQuotaOverdraftScheduling(context.Background()), c, account, body)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, upstream.requests, 2)
+	require.Len(t, upstream.bodies, 2)
+	require.True(t, upstream.requests[1].Close, "重试请求必须禁止复用上一条连接")
+	require.Equal(t, 1, upstream.resetCalls)
+	require.Equal(t, int64(91), upstream.resetAccountID)
+	require.Contains(t, string(upstream.bodies[0]), codexQuotaOverdraftCallIDPrefix)
+	require.Contains(t, string(upstream.bodies[1]), codexQuotaOverdraftCallIDPrefix)
+}
+
+func TestCodexQuotaOverdraft429ReconnectGuards(t *testing.T) {
+	fiveHour := make(http.Header)
+	fiveHour.Set("x-codex-primary-used-percent", "20")
+	fiveHour.Set("x-codex-primary-window-minutes", "10080")
+	fiveHour.Set("x-codex-secondary-used-percent", "100")
+	fiveHour.Set("x-codex-secondary-window-minutes", "300")
+	sevenDay := make(http.Header)
+	sevenDay.Set("x-codex-primary-used-percent", "100")
+	sevenDay.Set("x-codex-primary-window-minutes", "10080")
+	sevenDay.Set("x-codex-secondary-used-percent", "20")
+	sevenDay.Set("x-codex-secondary-window-minutes", "300")
+	require.True(t, codexQuotaOverdraft429Reconnectable(nil, []byte(`{"error":{"message":"try again"}}`)))
+	require.True(t, codexQuotaOverdraft429Reconnectable(fiveHour, nil))
+	require.False(t, codexQuotaOverdraft429Reconnectable(sevenDay, nil))
+	require.False(t, codexQuotaOverdraft429Reconnectable(nil, []byte(`{"error":{"message":"weekly limit reached"}}`)))
+	require.False(t, codexQuotaOverdraft429Reconnectable(http.Header{"Retry-After": []string{"30"}}, nil))
 }
 
 func TestCodexQuotaOverdraftInjectionGuards(t *testing.T) {

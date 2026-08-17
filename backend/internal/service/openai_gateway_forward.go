@@ -814,6 +814,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	httpInvalidEncryptedContentRetryTried := false
 	agentTaskRecoveryTried := false
 	rejectedFieldRetryState := newOpenAIResponsesRejectedFieldRetryState(body)
+	quotaReconnectAttempt := 0
 	for {
 		// Build upstream request
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
@@ -832,6 +833,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				headerGuard.close()
 			}
 			return nil, err
+		}
+		if quotaReconnectAttempt > 0 {
+			// HTTP/1 transports honor Close directly; the optional pool reset above
+			// also covers pooled HTTP/2 clients by making this request acquire a
+			// newly constructed transport.
+			upstreamReq.Close = true
 		}
 
 		// Get proxy URL
@@ -889,6 +896,27 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			respBody = s.redactAgentIdentitySensitiveBody(ctx, account, respBody)
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
+			if resp.StatusCode == http.StatusTooManyRequests && s.shouldReconnectCodexQuotaOverdraft429(
+				ctx,
+				account,
+				isOpenAIResponsesCompactPath(c),
+				resp.Header,
+				respBody,
+				quotaReconnectAttempt,
+			) {
+				quotaReconnectAttempt++
+				_ = resp.Body.Close()
+				resetCodexQuotaOverdraftUpstreamConnection(s.httpUpstream, proxyURL, account.ID)
+				logger.LegacyPrintf(
+					"service.openai_gateway",
+					"[OpenAI] Codex quota upstream reconnect after 429: account=%d attempt=%d/%d request_id=%s",
+					account.ID,
+					quotaReconnectAttempt,
+					codexQuotaOverdraftReconnectRetryLimit,
+					resp.Header.Get("x-request-id"),
+				)
+				continue
+			}
 			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
 				decoded, decodeErr := ensureReqBody()
 				if decodeErr != nil {

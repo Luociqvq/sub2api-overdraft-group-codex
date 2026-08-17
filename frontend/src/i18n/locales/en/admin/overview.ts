@@ -1028,6 +1028,13 @@ export default {
           'Leave empty to use the default $0.01 per call (official pricing: $10 per 1,000 calls); 0 means free. The group rate multiplier is applied on top.',
         finalPricePreview: 'Per-call price after current multiplier: {price}'
       },
+      codexInstructions: {
+        title: 'Group Codex Instructions',
+        enabled: 'Enable instruction injection',
+        label: 'Codex instruction content',
+        placeholder: 'Enter system instructions for this group only',
+        hint: 'Only requests bound to this group through /v1/responses, /v1/chat/completions, and /v1/messages are modified. Other groups are unchanged.'
+      },
       peakRate: {
         enable: 'Enable peak rate multiplier',
         peakStart: 'Peak start',

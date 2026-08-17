@@ -505,6 +505,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		DefaultMappedModel:              input.DefaultMappedModel,
 		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
+		CodexInstructionsEnabled:        input.CodexInstructionsEnabled && strings.TrimSpace(input.CodexInstructions) != "",
+		CodexInstructions:               strings.TrimSpace(input.CodexInstructions),
 		RPMLimit:                        input.RPMLimit,
 		MaxReasoningEffort:              maxReasoningEffort,
 		ReasoningEffortMappings:         reasoningEffortMappings,
@@ -871,6 +873,15 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.ModelsListConfig != nil {
 		group.ModelsListConfig = normalizeGroupModelsListConfig(*input.ModelsListConfig)
+	}
+	if input.CodexInstructionsEnabled != nil {
+		group.CodexInstructionsEnabled = *input.CodexInstructionsEnabled
+	}
+	if input.CodexInstructions != nil {
+		group.CodexInstructions = strings.TrimSpace(*input.CodexInstructions)
+	}
+	if strings.TrimSpace(group.CodexInstructions) == "" {
+		group.CodexInstructionsEnabled = false
 	}
 	if input.RPMLimit != nil {
 		group.RPMLimit = *input.RPMLimit

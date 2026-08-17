@@ -261,6 +261,15 @@ func (Group) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
 			Comment("自定义 /v1/models 展示列表配置；仅影响模型列表响应，不影响调度"),
 
+		// 分组级 Codex 指令注入配置，默认关闭，避免跨分组泄漏提示词。
+		field.Bool("codex_instructions_enabled").
+			Default(false).
+			Comment("是否为该分组的 Codex 请求注入分组级指令"),
+		field.String("codex_instructions").
+			Default("").
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Comment("分组级 Codex 指令正文；仅在开关启用时生效"),
+
 		// 分组级每分钟请求数上限（0 = 不限制）。设置后优先于用户级兜底生效。
 		field.Int("rpm_limit").
 			Default(0).

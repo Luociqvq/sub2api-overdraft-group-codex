@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -16,6 +17,9 @@ const (
 	codexQuotaOverdraftCallIDPrefix = "call_sub2api_overdraft_"
 	codexQuotaOverdraftExecInput    = `const r = await tools.exec_command({"cmd":"true","yield_time_ms":1000,"max_output_tokens":1000}); text(r.output);`
 	codexQuotaOverdraftMaxBodyBytes = 32 << 20
+	// Direct reconnect is deliberately smaller than the asynchronous five-try
+	// probe plan: this budget is consumed on the user's live request.
+	codexQuotaOverdraftReconnectRetryLimit = 2
 )
 
 var codexQuotaOverdraftEnabled atomic.Bool
@@ -98,6 +102,65 @@ func (s *OpenAIGatewayService) prepareCodexQuotaOverdraftPayload(ctx context.Con
 		return payload
 	}
 	return out
+}
+
+// shouldReconnectCodexQuotaOverdraft429 admits only the two cases where an
+// immediate fresh connection is useful: an explicit 5h-only exhaustion signal,
+// or the headerless/no-reset 429 emitted by the upstream edge. A known weekly
+// exhaustion and an ordinary 429 with a usable reset boundary retain the
+// existing cooldown/failover behavior.
+func (s *OpenAIGatewayService) shouldReconnectCodexQuotaOverdraft429(
+	ctx context.Context,
+	account *Account,
+	compact bool,
+	headers http.Header,
+	body []byte,
+	attempt int,
+) bool {
+	if attempt >= codexQuotaOverdraftReconnectRetryLimit ||
+		!s.shouldInjectCodexQuotaOverdraft(ctx, account, compact) ||
+		!codexQuotaOverdraftSchedulingAllowed(account, time.Now().UTC()) {
+		return false
+	}
+	return codexQuotaOverdraft429Reconnectable(headers, body)
+}
+
+func codexQuotaOverdraft429Reconnectable(headers http.Header, body []byte) bool {
+	if snapshot := ParseCodexRateLimitHeaders(headers); snapshot != nil {
+		if normalized := snapshot.Normalize(); normalized != nil {
+			if normalized.Used7dPercent != nil && *normalized.Used7dPercent >= 100 {
+				return false
+			}
+			if normalized.Used5hPercent != nil && *normalized.Used5hPercent >= 100 {
+				return true
+			}
+			// A real Codex snapshot below both quota ceilings identifies this as
+			// another kind of rate limit, not the no-reset edge failure.
+			if normalized.Used5hPercent != nil || normalized.Used7dPercent != nil {
+				return false
+			}
+		}
+	}
+
+	text := strings.ToLower(strings.Join(strings.Fields(string(body)), " "))
+	for _, marker := range []string{"weekly limit reached", "week limit reached", "7-day limit", "7 day limit"} {
+		if strings.Contains(text, marker) {
+			return false
+		}
+	}
+	if retryAt := parseRetryAfterResetTime(headers, time.Now()); retryAt != nil {
+		return false
+	}
+	if resetAt := calculateOpenAI429ResetTime(headers); resetAt != nil {
+		return false
+	}
+	return parseOpenAIRateLimitResetTime(body) == nil
+}
+
+func resetCodexQuotaOverdraftUpstreamConnection(upstream HTTPUpstream, proxyURL string, accountID int64) {
+	if resetter, ok := upstream.(HTTPUpstreamConnectionResetter); ok {
+		resetter.ResetConnections(proxyURL, accountID)
+	}
 }
 
 type codexQuotaOverdraftDocument struct {

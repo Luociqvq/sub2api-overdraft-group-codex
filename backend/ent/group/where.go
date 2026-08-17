@@ -305,6 +305,16 @@ func DefaultMappedModel(v string) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldDefaultMappedModel, v))
 }
 
+// CodexInstructionsEnabled applies equality check predicate on the "codex_instructions_enabled" field. It's identical to CodexInstructionsEnabledEQ.
+func CodexInstructionsEnabled(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCodexInstructionsEnabled, v))
+}
+
+// CodexInstructions applies equality check predicate on the "codex_instructions" field. It's identical to CodexInstructionsEQ.
+func CodexInstructions(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCodexInstructions, v))
+}
+
 // RpmLimit applies equality check predicate on the "rpm_limit" field. It's identical to RpmLimitEQ.
 func RpmLimit(v int) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
@@ -2353,6 +2363,81 @@ func DefaultMappedModelEqualFold(v string) predicate.Group {
 // DefaultMappedModelContainsFold applies the ContainsFold predicate on the "default_mapped_model" field.
 func DefaultMappedModelContainsFold(v string) predicate.Group {
 	return predicate.Group(sql.FieldContainsFold(FieldDefaultMappedModel, v))
+}
+
+// CodexInstructionsEnabledEQ applies the EQ predicate on the "codex_instructions_enabled" field.
+func CodexInstructionsEnabledEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCodexInstructionsEnabled, v))
+}
+
+// CodexInstructionsEnabledNEQ applies the NEQ predicate on the "codex_instructions_enabled" field.
+func CodexInstructionsEnabledNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldCodexInstructionsEnabled, v))
+}
+
+// CodexInstructionsEQ applies the EQ predicate on the "codex_instructions" field.
+func CodexInstructionsEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsNEQ applies the NEQ predicate on the "codex_instructions" field.
+func CodexInstructionsNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsIn applies the In predicate on the "codex_instructions" field.
+func CodexInstructionsIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldCodexInstructions, vs...))
+}
+
+// CodexInstructionsNotIn applies the NotIn predicate on the "codex_instructions" field.
+func CodexInstructionsNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldCodexInstructions, vs...))
+}
+
+// CodexInstructionsGT applies the GT predicate on the "codex_instructions" field.
+func CodexInstructionsGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsGTE applies the GTE predicate on the "codex_instructions" field.
+func CodexInstructionsGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsLT applies the LT predicate on the "codex_instructions" field.
+func CodexInstructionsLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsLTE applies the LTE predicate on the "codex_instructions" field.
+func CodexInstructionsLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsContains applies the Contains predicate on the "codex_instructions" field.
+func CodexInstructionsContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsHasPrefix applies the HasPrefix predicate on the "codex_instructions" field.
+func CodexInstructionsHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsHasSuffix applies the HasSuffix predicate on the "codex_instructions" field.
+func CodexInstructionsHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsEqualFold applies the EqualFold predicate on the "codex_instructions" field.
+func CodexInstructionsEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldCodexInstructions, v))
+}
+
+// CodexInstructionsContainsFold applies the ContainsFold predicate on the "codex_instructions" field.
+func CodexInstructionsContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldCodexInstructions, v))
 }
 
 // RpmLimitEQ applies the EQ predicate on the "rpm_limit" field.

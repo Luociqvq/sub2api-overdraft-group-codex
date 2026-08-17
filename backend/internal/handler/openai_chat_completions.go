@@ -62,6 +62,12 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
 	}
+	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "chat_completions", apiKey.Group); injectErr != nil {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
+		return
+	} else if changed {
+		body = injected
+	}
 
 	if !gjson.ValidBytes(body) {
 		logRequestBodyParseFailure(reqLog, body, nil)

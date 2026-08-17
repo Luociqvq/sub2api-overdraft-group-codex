@@ -290,7 +290,9 @@ gateway:
   # Experimental: allow eligible OpenAI OAuth Codex accounts to keep serving
   # after the reported 5h/7d quota reaches the scheduling threshold.
   # 实验性 Codex 额度透支：为符合条件的 OAuth 请求注入空操作工具调用，并忽略
-  # 5h/7d 用量百分比预暂停。真实上游 429 仍会触发账号冷却。此部署示例默认开启。
+  # 5h/7d 用量百分比预暂停。真实上游 429 会先对无 reset 信号的边缘限流做最多两次
+  # 断开连接重连；明确周额度耗尽或带 Retry-After 的 429 仍按原账号冷却处理。
+  # 此部署示例默认开启。
   codex_quota_overdraft_enabled: true
   # Optional: template file used to build the final top-level Codex `instructions`.
   # 可选：用于构建最终 Codex 顶层 `instructions` 的模板文件路径。

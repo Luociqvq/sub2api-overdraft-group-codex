@@ -67,6 +67,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
+	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "responses", apiKey.Group); injectErr != nil {
+		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
+		return
+	} else if changed {
+		body = injected
+	}
 
 	// Extract model and stream using gjson (like OpenAI handler)
 	modelResult := gjson.GetBytes(body, "model")

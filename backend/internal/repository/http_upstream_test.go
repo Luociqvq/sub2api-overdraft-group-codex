@@ -852,6 +852,24 @@ func (s *HTTPUpstreamSuite) TestAccountProxyIsolation_DifferentProxy() {
 	require.Equal(s.T(), 2, len(svc.clients), "账号+代理隔离应缓存两个客户端")
 }
 
+// TestResetConnectionsScopesAccountProxyPool verifies that a live-request
+// reconnect rebuilds only the selected account/proxy transport under the
+// default isolation mode.
+func (s *HTTPUpstreamSuite) TestResetConnectionsScopesAccountProxyPool() {
+	s.cfg.Gateway = config.GatewayConfig{ConnectionPoolIsolation: config.ConnectionPoolIsolationAccountProxy}
+	svc := s.newService()
+	proxyURL := "http://proxy.local:8080"
+	entry1 := mustGetOrCreateClient(s.T(), svc, proxyURL, 1, 3)
+	entry2 := mustGetOrCreateClient(s.T(), svc, proxyURL, 2, 3)
+
+	svc.ResetConnections(proxyURL, 1)
+
+	require.False(s.T(), hasEntry(svc, entry1), "目标账号连接池应被移除")
+	require.True(s.T(), hasEntry(svc, entry2), "其他账号连接池必须保留")
+	rebuilt := mustGetOrCreateClient(s.T(), svc, proxyURL, 1, 3)
+	require.NotSame(s.T(), entry1, rebuilt, "重连必须创建新的 transport")
+}
+
 // TestAccountModeProxyChangeClearsPool 测试账户模式下代理变更
 // 验证账户切换代理时清理旧连接池，避免复用错误代理
 func (s *HTTPUpstreamSuite) TestAccountModeProxyChangeClearsPool() {

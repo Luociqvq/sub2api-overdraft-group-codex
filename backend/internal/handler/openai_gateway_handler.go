@@ -295,6 +295,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
 	}
+	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "responses", apiKey.Group); injectErr != nil {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
+		return
+	} else if changed {
+		body = injected
+	}
 
 	setOpsRequestContext(c, "", false)
 	sessionHashBody := body
@@ -958,6 +964,12 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	if len(body) == 0 {
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return
+	}
+	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "messages", apiKey.Group); injectErr != nil {
+		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
+		return
+	} else if changed {
+		body = injected
 	}
 
 	if !gjson.ValidBytes(body) {
