@@ -1,0 +1,1593 @@
+diff --git a/backend/ent/group.go b/backend/ent/group.go
+index 110f067..2d99f3c 100644
+--- a/backend/ent/group.go
++++ b/backend/ent/group.go
+@@ -97,7 +97,7 @@ type Group struct {
+ 	AudioTtsPricePerMillionChars *float64 `json:"audio_tts_price_per_million_chars,omitempty"`
+ 	// STT 每小时价格（USD）
+ 	AudioSttPricePerHour *float64 `json:"audio_stt_price_per_hour,omitempty"`
+-	// 是否按上下文长度应用模型阶梯价格
++	// 是否按上下文长度应用模型阶梯价格；默认开启以保持官方/渠道长上下文价
+ 	LongContextPricingEnabled bool `json:"long_context_pricing_enabled,omitempty"`
+ 	// 分组逐模型定价；优先级高于渠道和内置定价
+ 	ModelPricing json.RawMessage `json:"model_pricing,omitempty"`
+@@ -131,6 +131,10 @@ type Group struct {
+ 	MessagesDispatchModelConfig domain.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
+ 	// 自定义 /v1/models 展示列表配置；仅影响模型列表响应，不影响调度
+ 	ModelsListConfig domain.GroupModelsListConfig `json:"models_list_config,omitempty"`
++	// 是否为该分组的 Codex 请求注入分组级指令
++	CodexInstructionsEnabled bool `json:"codex_instructions_enabled,omitempty"`
++	// 分组级 Codex 指令正文；仅在开关启用时生效
++	CodexInstructions string `json:"codex_instructions,omitempty"`
+ 	// 分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流
+ 	RpmLimit int `json:"rpm_limit,omitempty"`
+ 	// OpenAI reasoning effort 上限；可选 minimal/low/medium/high/xhigh/max
+@@ -251,13 +255,13 @@ func (*Group) scanValues(columns []string) ([]any, error) {
+ 		switch columns[i] {
+ 		case group.FieldVideoModelPrices, group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig, group.FieldReasoningEffortMappings:
+ 			values[i] = new([]byte)
+-		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowBatchImageGeneration, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldProfitControlEnabled:
++		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowBatchImageGeneration, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldCodexInstructionsEnabled, group.FieldProfitControlEnabled:
+ 			values[i] = new(sql.NullBool)
+ 		case group.FieldRateMultiplier, group.FieldPeakRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k, group.FieldBatchImageDiscountMultiplier, group.FieldBatchImageHoldMultiplier, group.FieldVideoRateMultiplier, group.FieldVideoPrice480p, group.FieldVideoPrice720p, group.FieldVideoPrice1080p, group.FieldWebSearchPricePerCall, group.FieldSearchPricePer1k, group.FieldAudioRealtimePricePerMin, group.FieldAudioTtsPricePerMillionChars, group.FieldAudioSttPricePerHour, group.FieldProfitMinMargin, group.FieldProfitSafetyBuffer:
+ 			values[i] = new(sql.NullFloat64)
+ 		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
+ 			values[i] = new(sql.NullInt64)
+-		case group.FieldName, group.FieldDescription, group.FieldPeakStart, group.FieldPeakEnd, group.FieldStatus, group.FieldDuplicateOperationID, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel, group.FieldMaxReasoningEffort:
++		case group.FieldName, group.FieldDescription, group.FieldPeakStart, group.FieldPeakEnd, group.FieldStatus, group.FieldDuplicateOperationID, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel, group.FieldCodexInstructions, group.FieldMaxReasoningEffort:
+ 			values[i] = new(sql.NullString)
+ 		case group.FieldCreatedAt, group.FieldUpdatedAt, group.FieldDeletedAt:
+ 			values[i] = new(sql.NullTime)
+@@ -649,6 +653,18 @@ func (_m *Group) assignValues(columns []string, values []any) error {
+ 					return fmt.Errorf("unmarshal field models_list_config: %w", err)
+ 				}
+ 			}
++		case group.FieldCodexInstructionsEnabled:
++			if value, ok := values[i].(*sql.NullBool); !ok {
++				return fmt.Errorf("unexpected type %T for field codex_instructions_enabled", values[i])
++			} else if value.Valid {
++				_m.CodexInstructionsEnabled = value.Bool
++			}
++		case group.FieldCodexInstructions:
++			if value, ok := values[i].(*sql.NullString); !ok {
++				return fmt.Errorf("unexpected type %T for field codex_instructions", values[i])
++			} else if value.Valid {
++				_m.CodexInstructions = value.String
++			}
+ 		case group.FieldRpmLimit:
+ 			if value, ok := values[i].(*sql.NullInt64); !ok {
+ 				return fmt.Errorf("unexpected type %T for field rpm_limit", values[i])
+@@ -969,6 +985,12 @@ func (_m *Group) String() string {
+ 	builder.WriteString("models_list_config=")
+ 	builder.WriteString(fmt.Sprintf("%v", _m.ModelsListConfig))
+ 	builder.WriteString(", ")
++	builder.WriteString("codex_instructions_enabled=")
++	builder.WriteString(fmt.Sprintf("%v", _m.CodexInstructionsEnabled))
++	builder.WriteString(", ")
++	builder.WriteString("codex_instructions=")
++	builder.WriteString(_m.CodexInstructions)
++	builder.WriteString(", ")
+ 	builder.WriteString("rpm_limit=")
+ 	builder.WriteString(fmt.Sprintf("%v", _m.RpmLimit))
+ 	builder.WriteString(", ")
+diff --git a/backend/ent/group/group.go b/backend/ent/group/group.go
+index 5ec04d3..8ebc571 100644
+--- a/backend/ent/group/group.go
++++ b/backend/ent/group/group.go
+@@ -128,6 +128,10 @@ const (
+ 	FieldMessagesDispatchModelConfig = "messages_dispatch_model_config"
+ 	// FieldModelsListConfig holds the string denoting the models_list_config field in the database.
+ 	FieldModelsListConfig = "models_list_config"
++	// FieldCodexInstructionsEnabled holds the string denoting the codex_instructions_enabled field in the database.
++	FieldCodexInstructionsEnabled = "codex_instructions_enabled"
++	// FieldCodexInstructions holds the string denoting the codex_instructions field in the database.
++	FieldCodexInstructions = "codex_instructions"
+ 	// FieldRpmLimit holds the string denoting the rpm_limit field in the database.
+ 	FieldRpmLimit = "rpm_limit"
+ 	// FieldMaxReasoningEffort holds the string denoting the max_reasoning_effort field in the database.
+@@ -271,6 +275,8 @@ var Columns = []string{
+ 	FieldDefaultMappedModel,
+ 	FieldMessagesDispatchModelConfig,
+ 	FieldModelsListConfig,
++	FieldCodexInstructionsEnabled,
++	FieldCodexInstructions,
+ 	FieldRpmLimit,
+ 	FieldMaxReasoningEffort,
+ 	FieldReasoningEffortMappings,
+@@ -398,6 +404,10 @@ var (
+ 	DefaultMessagesDispatchModelConfig domain.OpenAIMessagesDispatchModelConfig
+ 	// DefaultModelsListConfig holds the default value on creation for the "models_list_config" field.
+ 	DefaultModelsListConfig domain.GroupModelsListConfig
++	// DefaultCodexInstructionsEnabled holds the default value on creation for the "codex_instructions_enabled" field.
++	DefaultCodexInstructionsEnabled bool
++	// DefaultCodexInstructions holds the default value on creation for the "codex_instructions" field.
++	DefaultCodexInstructions string
+ 	// DefaultRpmLimit holds the default value on creation for the "rpm_limit" field.
+ 	DefaultRpmLimit int
+ 	// DefaultMaxReasoningEffort holds the default value on creation for the "max_reasoning_effort" field.
+@@ -672,6 +682,16 @@ func ByDefaultMappedModel(opts ...sql.OrderTermOption) OrderOption {
+ 	return sql.OrderByField(FieldDefaultMappedModel, opts...).ToFunc()
+ }
+ 
++// ByCodexInstructionsEnabled orders the results by the codex_instructions_enabled field.
++func ByCodexInstructionsEnabled(opts ...sql.OrderTermOption) OrderOption {
++	return sql.OrderByField(FieldCodexInstructionsEnabled, opts...).ToFunc()
++}
++
++// ByCodexInstructions orders the results by the codex_instructions field.
++func ByCodexInstructions(opts ...sql.OrderTermOption) OrderOption {
++	return sql.OrderByField(FieldCodexInstructions, opts...).ToFunc()
++}
++
+ // ByRpmLimit orders the results by the rpm_limit field.
+ func ByRpmLimit(opts ...sql.OrderTermOption) OrderOption {
+ 	return sql.OrderByField(FieldRpmLimit, opts...).ToFunc()
+diff --git a/backend/ent/group/where.go b/backend/ent/group/where.go
+index 685a48a..53b4525 100644
+--- a/backend/ent/group/where.go
++++ b/backend/ent/group/where.go
+@@ -305,6 +305,16 @@ func DefaultMappedModel(v string) predicate.Group {
+ 	return predicate.Group(sql.FieldEQ(FieldDefaultMappedModel, v))
+ }
+ 
++// CodexInstructionsEnabled applies equality check predicate on the "codex_instructions_enabled" field. It's identical to CodexInstructionsEnabledEQ.
++func CodexInstructionsEnabled(v bool) predicate.Group {
++	return predicate.Group(sql.FieldEQ(FieldCodexInstructionsEnabled, v))
++}
++
++// CodexInstructions applies equality check predicate on the "codex_instructions" field. It's identical to CodexInstructionsEQ.
++func CodexInstructions(v string) predicate.Group {
++	return predicate.Group(sql.FieldEQ(FieldCodexInstructions, v))
++}
++
+ // RpmLimit applies equality check predicate on the "rpm_limit" field. It's identical to RpmLimitEQ.
+ func RpmLimit(v int) predicate.Group {
+ 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
+@@ -2355,6 +2365,81 @@ func DefaultMappedModelContainsFold(v string) predicate.Group {
+ 	return predicate.Group(sql.FieldContainsFold(FieldDefaultMappedModel, v))
+ }
+ 
++// CodexInstructionsEnabledEQ applies the EQ predicate on the "codex_instructions_enabled" field.
++func CodexInstructionsEnabledEQ(v bool) predicate.Group {
++	return predicate.Group(sql.FieldEQ(FieldCodexInstructionsEnabled, v))
++}
++
++// CodexInstructionsEnabledNEQ applies the NEQ predicate on the "codex_instructions_enabled" field.
++func CodexInstructionsEnabledNEQ(v bool) predicate.Group {
++	return predicate.Group(sql.FieldNEQ(FieldCodexInstructionsEnabled, v))
++}
++
++// CodexInstructionsEQ applies the EQ predicate on the "codex_instructions" field.
++func CodexInstructionsEQ(v string) predicate.Group {
++	return predicate.Group(sql.FieldEQ(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsNEQ applies the NEQ predicate on the "codex_instructions" field.
++func CodexInstructionsNEQ(v string) predicate.Group {
++	return predicate.Group(sql.FieldNEQ(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsIn applies the In predicate on the "codex_instructions" field.
++func CodexInstructionsIn(vs ...string) predicate.Group {
++	return predicate.Group(sql.FieldIn(FieldCodexInstructions, vs...))
++}
++
++// CodexInstructionsNotIn applies the NotIn predicate on the "codex_instructions" field.
++func CodexInstructionsNotIn(vs ...string) predicate.Group {
++	return predicate.Group(sql.FieldNotIn(FieldCodexInstructions, vs...))
++}
++
++// CodexInstructionsGT applies the GT predicate on the "codex_instructions" field.
++func CodexInstructionsGT(v string) predicate.Group {
++	return predicate.Group(sql.FieldGT(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsGTE applies the GTE predicate on the "codex_instructions" field.
++func CodexInstructionsGTE(v string) predicate.Group {
++	return predicate.Group(sql.FieldGTE(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsLT applies the LT predicate on the "codex_instructions" field.
++func CodexInstructionsLT(v string) predicate.Group {
++	return predicate.Group(sql.FieldLT(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsLTE applies the LTE predicate on the "codex_instructions" field.
++func CodexInstructionsLTE(v string) predicate.Group {
++	return predicate.Group(sql.FieldLTE(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsContains applies the Contains predicate on the "codex_instructions" field.
++func CodexInstructionsContains(v string) predicate.Group {
++	return predicate.Group(sql.FieldContains(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsHasPrefix applies the HasPrefix predicate on the "codex_instructions" field.
++func CodexInstructionsHasPrefix(v string) predicate.Group {
++	return predicate.Group(sql.FieldHasPrefix(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsHasSuffix applies the HasSuffix predicate on the "codex_instructions" field.
++func CodexInstructionsHasSuffix(v string) predicate.Group {
++	return predicate.Group(sql.FieldHasSuffix(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsEqualFold applies the EqualFold predicate on the "codex_instructions" field.
++func CodexInstructionsEqualFold(v string) predicate.Group {
++	return predicate.Group(sql.FieldEqualFold(FieldCodexInstructions, v))
++}
++
++// CodexInstructionsContainsFold applies the ContainsFold predicate on the "codex_instructions" field.
++func CodexInstructionsContainsFold(v string) predicate.Group {
++	return predicate.Group(sql.FieldContainsFold(FieldCodexInstructions, v))
++}
++
+ // RpmLimitEQ applies the EQ predicate on the "rpm_limit" field.
+ func RpmLimitEQ(v int) predicate.Group {
+ 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
+diff --git a/backend/ent/group_create.go b/backend/ent/group_create.go
+index 158dca1..b19e6e4 100644
+--- a/backend/ent/group_create.go
++++ b/backend/ent/group_create.go
+@@ -774,6 +774,34 @@ func (_c *GroupCreate) SetNillableModelsListConfig(v *domain.GroupModelsListConf
+ 	return _c
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (_c *GroupCreate) SetCodexInstructionsEnabled(v bool) *GroupCreate {
++	_c.mutation.SetCodexInstructionsEnabled(v)
++	return _c
++}
++
++// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
++func (_c *GroupCreate) SetNillableCodexInstructionsEnabled(v *bool) *GroupCreate {
++	if v != nil {
++		_c.SetCodexInstructionsEnabled(*v)
++	}
++	return _c
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (_c *GroupCreate) SetCodexInstructions(v string) *GroupCreate {
++	_c.mutation.SetCodexInstructions(v)
++	return _c
++}
++
++// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
++func (_c *GroupCreate) SetNillableCodexInstructions(v *string) *GroupCreate {
++	if v != nil {
++		_c.SetCodexInstructions(*v)
++	}
++	return _c
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (_c *GroupCreate) SetRpmLimit(v int) *GroupCreate {
+ 	_c.mutation.SetRpmLimit(v)
+@@ -1115,6 +1143,14 @@ func (_c *GroupCreate) defaults() error {
+ 		v := group.DefaultModelsListConfig
+ 		_c.mutation.SetModelsListConfig(v)
+ 	}
++	if _, ok := _c.mutation.CodexInstructionsEnabled(); !ok {
++		v := group.DefaultCodexInstructionsEnabled
++		_c.mutation.SetCodexInstructionsEnabled(v)
++	}
++	if _, ok := _c.mutation.CodexInstructions(); !ok {
++		v := group.DefaultCodexInstructions
++		_c.mutation.SetCodexInstructions(v)
++	}
+ 	if _, ok := _c.mutation.RpmLimit(); !ok {
+ 		v := group.DefaultRpmLimit
+ 		_c.mutation.SetRpmLimit(v)
+@@ -1306,6 +1342,12 @@ func (_c *GroupCreate) check() error {
+ 	if _, ok := _c.mutation.ModelsListConfig(); !ok {
+ 		return &ValidationError{Name: "models_list_config", err: errors.New(`ent: missing required field "Group.models_list_config"`)}
+ 	}
++	if _, ok := _c.mutation.CodexInstructionsEnabled(); !ok {
++		return &ValidationError{Name: "codex_instructions_enabled", err: errors.New(`ent: missing required field "Group.codex_instructions_enabled"`)}
++	}
++	if _, ok := _c.mutation.CodexInstructions(); !ok {
++		return &ValidationError{Name: "codex_instructions", err: errors.New(`ent: missing required field "Group.codex_instructions"`)}
++	}
+ 	if _, ok := _c.mutation.RpmLimit(); !ok {
+ 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
+ 	}
+@@ -1580,6 +1622,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
+ 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
+ 		_node.ModelsListConfig = value
+ 	}
++	if value, ok := _c.mutation.CodexInstructionsEnabled(); ok {
++		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
++		_node.CodexInstructionsEnabled = value
++	}
++	if value, ok := _c.mutation.CodexInstructions(); ok {
++		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
++		_node.CodexInstructions = value
++	}
+ 	if value, ok := _c.mutation.RpmLimit(); ok {
+ 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
+ 		_node.RpmLimit = value
+@@ -2678,6 +2728,30 @@ func (u *GroupUpsert) UpdateModelsListConfig() *GroupUpsert {
+ 	return u
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (u *GroupUpsert) SetCodexInstructionsEnabled(v bool) *GroupUpsert {
++	u.Set(group.FieldCodexInstructionsEnabled, v)
++	return u
++}
++
++// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
++func (u *GroupUpsert) UpdateCodexInstructionsEnabled() *GroupUpsert {
++	u.SetExcluded(group.FieldCodexInstructionsEnabled)
++	return u
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (u *GroupUpsert) SetCodexInstructions(v string) *GroupUpsert {
++	u.Set(group.FieldCodexInstructions, v)
++	return u
++}
++
++// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
++func (u *GroupUpsert) UpdateCodexInstructions() *GroupUpsert {
++	u.SetExcluded(group.FieldCodexInstructions)
++	return u
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (u *GroupUpsert) SetRpmLimit(v int) *GroupUpsert {
+ 	u.Set(group.FieldRpmLimit, v)
+@@ -3887,6 +3961,34 @@ func (u *GroupUpsertOne) UpdateModelsListConfig() *GroupUpsertOne {
+ 	})
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (u *GroupUpsertOne) SetCodexInstructionsEnabled(v bool) *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetCodexInstructionsEnabled(v)
++	})
++}
++
++// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
++func (u *GroupUpsertOne) UpdateCodexInstructionsEnabled() *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateCodexInstructionsEnabled()
++	})
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (u *GroupUpsertOne) SetCodexInstructions(v string) *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetCodexInstructions(v)
++	})
++}
++
++// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
++func (u *GroupUpsertOne) UpdateCodexInstructions() *GroupUpsertOne {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateCodexInstructions()
++	})
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (u *GroupUpsertOne) SetRpmLimit(v int) *GroupUpsertOne {
+ 	return u.Update(func(s *GroupUpsert) {
+@@ -5277,6 +5379,34 @@ func (u *GroupUpsertBulk) UpdateModelsListConfig() *GroupUpsertBulk {
+ 	})
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (u *GroupUpsertBulk) SetCodexInstructionsEnabled(v bool) *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetCodexInstructionsEnabled(v)
++	})
++}
++
++// UpdateCodexInstructionsEnabled sets the "codex_instructions_enabled" field to the value that was provided on create.
++func (u *GroupUpsertBulk) UpdateCodexInstructionsEnabled() *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateCodexInstructionsEnabled()
++	})
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (u *GroupUpsertBulk) SetCodexInstructions(v string) *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.SetCodexInstructions(v)
++	})
++}
++
++// UpdateCodexInstructions sets the "codex_instructions" field to the value that was provided on create.
++func (u *GroupUpsertBulk) UpdateCodexInstructions() *GroupUpsertBulk {
++	return u.Update(func(s *GroupUpsert) {
++		s.UpdateCodexInstructions()
++	})
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (u *GroupUpsertBulk) SetRpmLimit(v int) *GroupUpsertBulk {
+ 	return u.Update(func(s *GroupUpsert) {
+diff --git a/backend/ent/group_update.go b/backend/ent/group_update.go
+index beca0c7..c8c490a 100644
+--- a/backend/ent/group_update.go
++++ b/backend/ent/group_update.go
+@@ -1059,6 +1059,34 @@ func (_u *GroupUpdate) SetNillableModelsListConfig(v *domain.GroupModelsListConf
+ 	return _u
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (_u *GroupUpdate) SetCodexInstructionsEnabled(v bool) *GroupUpdate {
++	_u.mutation.SetCodexInstructionsEnabled(v)
++	return _u
++}
++
++// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
++func (_u *GroupUpdate) SetNillableCodexInstructionsEnabled(v *bool) *GroupUpdate {
++	if v != nil {
++		_u.SetCodexInstructionsEnabled(*v)
++	}
++	return _u
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (_u *GroupUpdate) SetCodexInstructions(v string) *GroupUpdate {
++	_u.mutation.SetCodexInstructions(v)
++	return _u
++}
++
++// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
++func (_u *GroupUpdate) SetNillableCodexInstructions(v *string) *GroupUpdate {
++	if v != nil {
++		_u.SetCodexInstructions(*v)
++	}
++	return _u
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (_u *GroupUpdate) SetRpmLimit(v int) *GroupUpdate {
+ 	_u.mutation.ResetRpmLimit()
+@@ -1812,6 +1840,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+ 	if value, ok := _u.mutation.ModelsListConfig(); ok {
+ 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
+ 	}
++	if value, ok := _u.mutation.CodexInstructionsEnabled(); ok {
++		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
++	}
++	if value, ok := _u.mutation.CodexInstructions(); ok {
++		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
++	}
+ 	if value, ok := _u.mutation.RpmLimit(); ok {
+ 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
+ 	}
+@@ -3180,6 +3214,34 @@ func (_u *GroupUpdateOne) SetNillableModelsListConfig(v *domain.GroupModelsListC
+ 	return _u
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (_u *GroupUpdateOne) SetCodexInstructionsEnabled(v bool) *GroupUpdateOne {
++	_u.mutation.SetCodexInstructionsEnabled(v)
++	return _u
++}
++
++// SetNillableCodexInstructionsEnabled sets the "codex_instructions_enabled" field if the given value is not nil.
++func (_u *GroupUpdateOne) SetNillableCodexInstructionsEnabled(v *bool) *GroupUpdateOne {
++	if v != nil {
++		_u.SetCodexInstructionsEnabled(*v)
++	}
++	return _u
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (_u *GroupUpdateOne) SetCodexInstructions(v string) *GroupUpdateOne {
++	_u.mutation.SetCodexInstructions(v)
++	return _u
++}
++
++// SetNillableCodexInstructions sets the "codex_instructions" field if the given value is not nil.
++func (_u *GroupUpdateOne) SetNillableCodexInstructions(v *string) *GroupUpdateOne {
++	if v != nil {
++		_u.SetCodexInstructions(*v)
++	}
++	return _u
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (_u *GroupUpdateOne) SetRpmLimit(v int) *GroupUpdateOne {
+ 	_u.mutation.ResetRpmLimit()
+@@ -3963,6 +4025,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
+ 	if value, ok := _u.mutation.ModelsListConfig(); ok {
+ 		_spec.SetField(group.FieldModelsListConfig, field.TypeJSON, value)
+ 	}
++	if value, ok := _u.mutation.CodexInstructionsEnabled(); ok {
++		_spec.SetField(group.FieldCodexInstructionsEnabled, field.TypeBool, value)
++	}
++	if value, ok := _u.mutation.CodexInstructions(); ok {
++		_spec.SetField(group.FieldCodexInstructions, field.TypeString, value)
++	}
+ 	if value, ok := _u.mutation.RpmLimit(); ok {
+ 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
+ 	}
+diff --git a/backend/ent/migrate/schema.go b/backend/ent/migrate/schema.go
+index 316870e..846d0a2 100644
+--- a/backend/ent/migrate/schema.go
++++ b/backend/ent/migrate/schema.go
+@@ -951,6 +951,8 @@ var (
+ 		{Name: "default_mapped_model", Type: field.TypeString, Size: 100, Default: ""},
+ 		{Name: "messages_dispatch_model_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+ 		{Name: "models_list_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
++		{Name: "codex_instructions_enabled", Type: field.TypeBool, Default: false},
++		{Name: "codex_instructions", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+ 		{Name: "rpm_limit", Type: field.TypeInt, Default: 0},
+ 		{Name: "max_reasoning_effort", Type: field.TypeString, Size: 20, Default: ""},
+ 		{Name: "reasoning_effort_mappings", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+diff --git a/backend/ent/mutation.go b/backend/ent/mutation.go
+index da0500d..1dcc2a4 100644
+--- a/backend/ent/mutation.go
++++ b/backend/ent/mutation.go
+@@ -21929,6 +21929,8 @@ type GroupMutation struct {
+ 	default_mapped_model                    *string
+ 	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
+ 	models_list_config                      *domain.GroupModelsListConfig
++	codex_instructions_enabled              *bool
++	codex_instructions                      *string
+ 	rpm_limit                               *int
+ 	addrpm_limit                            *int
+ 	max_reasoning_effort                    *string
+@@ -24890,6 +24892,78 @@ func (m *GroupMutation) ResetModelsListConfig() {
+ 	m.models_list_config = nil
+ }
+ 
++// SetCodexInstructionsEnabled sets the "codex_instructions_enabled" field.
++func (m *GroupMutation) SetCodexInstructionsEnabled(b bool) {
++	m.codex_instructions_enabled = &b
++}
++
++// CodexInstructionsEnabled returns the value of the "codex_instructions_enabled" field in the mutation.
++func (m *GroupMutation) CodexInstructionsEnabled() (r bool, exists bool) {
++	v := m.codex_instructions_enabled
++	if v == nil {
++		return
++	}
++	return *v, true
++}
++
++// OldCodexInstructionsEnabled returns the old "codex_instructions_enabled" field's value of the Group entity.
++// If the Group object wasn't provided to the builder, the object is fetched from the database.
++// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
++func (m *GroupMutation) OldCodexInstructionsEnabled(ctx context.Context) (v bool, err error) {
++	if !m.op.Is(OpUpdateOne) {
++		return v, errors.New("OldCodexInstructionsEnabled is only allowed on UpdateOne operations")
++	}
++	if m.id == nil || m.oldValue == nil {
++		return v, errors.New("OldCodexInstructionsEnabled requires an ID field in the mutation")
++	}
++	oldValue, err := m.oldValue(ctx)
++	if err != nil {
++		return v, fmt.Errorf("querying old value for OldCodexInstructionsEnabled: %w", err)
++	}
++	return oldValue.CodexInstructionsEnabled, nil
++}
++
++// ResetCodexInstructionsEnabled resets all changes to the "codex_instructions_enabled" field.
++func (m *GroupMutation) ResetCodexInstructionsEnabled() {
++	m.codex_instructions_enabled = nil
++}
++
++// SetCodexInstructions sets the "codex_instructions" field.
++func (m *GroupMutation) SetCodexInstructions(s string) {
++	m.codex_instructions = &s
++}
++
++// CodexInstructions returns the value of the "codex_instructions" field in the mutation.
++func (m *GroupMutation) CodexInstructions() (r string, exists bool) {
++	v := m.codex_instructions
++	if v == nil {
++		return
++	}
++	return *v, true
++}
++
++// OldCodexInstructions returns the old "codex_instructions" field's value of the Group entity.
++// If the Group object wasn't provided to the builder, the object is fetched from the database.
++// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
++func (m *GroupMutation) OldCodexInstructions(ctx context.Context) (v string, err error) {
++	if !m.op.Is(OpUpdateOne) {
++		return v, errors.New("OldCodexInstructions is only allowed on UpdateOne operations")
++	}
++	if m.id == nil || m.oldValue == nil {
++		return v, errors.New("OldCodexInstructions requires an ID field in the mutation")
++	}
++	oldValue, err := m.oldValue(ctx)
++	if err != nil {
++		return v, fmt.Errorf("querying old value for OldCodexInstructions: %w", err)
++	}
++	return oldValue.CodexInstructions, nil
++}
++
++// ResetCodexInstructions resets all changes to the "codex_instructions" field.
++func (m *GroupMutation) ResetCodexInstructions() {
++	m.codex_instructions = nil
++}
++
+ // SetRpmLimit sets the "rpm_limit" field.
+ func (m *GroupMutation) SetRpmLimit(i int) {
+ 	m.rpm_limit = &i
+@@ -25539,7 +25613,7 @@ func (m *GroupMutation) Type() string {
+ // order to get all numeric fields that were incremented/decremented, call
+ // AddedFields().
+ func (m *GroupMutation) Fields() []string {
+-	fields := make([]string, 0, 62)
++	fields := make([]string, 0, 64)
+ 	if m.created_at != nil {
+ 		fields = append(fields, group.FieldCreatedAt)
+ 	}
+@@ -25708,6 +25782,12 @@ func (m *GroupMutation) Fields() []string {
+ 	if m.models_list_config != nil {
+ 		fields = append(fields, group.FieldModelsListConfig)
+ 	}
++	if m.codex_instructions_enabled != nil {
++		fields = append(fields, group.FieldCodexInstructionsEnabled)
++	}
++	if m.codex_instructions != nil {
++		fields = append(fields, group.FieldCodexInstructions)
++	}
+ 	if m.rpm_limit != nil {
+ 		fields = append(fields, group.FieldRpmLimit)
+ 	}
+@@ -25846,6 +25926,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
+ 		return m.MessagesDispatchModelConfig()
+ 	case group.FieldModelsListConfig:
+ 		return m.ModelsListConfig()
++	case group.FieldCodexInstructionsEnabled:
++		return m.CodexInstructionsEnabled()
++	case group.FieldCodexInstructions:
++		return m.CodexInstructions()
+ 	case group.FieldRpmLimit:
+ 		return m.RpmLimit()
+ 	case group.FieldMaxReasoningEffort:
+@@ -25979,6 +26063,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
+ 		return m.OldMessagesDispatchModelConfig(ctx)
+ 	case group.FieldModelsListConfig:
+ 		return m.OldModelsListConfig(ctx)
++	case group.FieldCodexInstructionsEnabled:
++		return m.OldCodexInstructionsEnabled(ctx)
++	case group.FieldCodexInstructions:
++		return m.OldCodexInstructions(ctx)
+ 	case group.FieldRpmLimit:
+ 		return m.OldRpmLimit(ctx)
+ 	case group.FieldMaxReasoningEffort:
+@@ -26392,6 +26480,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
+ 		}
+ 		m.SetModelsListConfig(v)
+ 		return nil
++	case group.FieldCodexInstructionsEnabled:
++		v, ok := value.(bool)
++		if !ok {
++			return fmt.Errorf("unexpected type %T for field %s", value, name)
++		}
++		m.SetCodexInstructionsEnabled(v)
++		return nil
++	case group.FieldCodexInstructions:
++		v, ok := value.(string)
++		if !ok {
++			return fmt.Errorf("unexpected type %T for field %s", value, name)
++		}
++		m.SetCodexInstructions(v)
++		return nil
+ 	case group.FieldRpmLimit:
+ 		v, ok := value.(int)
+ 		if !ok {
+@@ -27113,6 +27215,12 @@ func (m *GroupMutation) ResetField(name string) error {
+ 	case group.FieldModelsListConfig:
+ 		m.ResetModelsListConfig()
+ 		return nil
++	case group.FieldCodexInstructionsEnabled:
++		m.ResetCodexInstructionsEnabled()
++		return nil
++	case group.FieldCodexInstructions:
++		m.ResetCodexInstructions()
++		return nil
+ 	case group.FieldRpmLimit:
+ 		m.ResetRpmLimit()
+ 		return nil
+diff --git a/backend/ent/runtime/runtime.go b/backend/ent/runtime/runtime.go
+index 4be8d37..5299d1a 100644
+--- a/backend/ent/runtime/runtime.go
++++ b/backend/ent/runtime/runtime.go
+@@ -1187,30 +1187,38 @@ func init() {
+ 	groupDescModelsListConfig := groupFields[52].Descriptor()
+ 	// group.DefaultModelsListConfig holds the default value on creation for the models_list_config field.
+ 	group.DefaultModelsListConfig = groupDescModelsListConfig.Default.(domain.GroupModelsListConfig)
++	// groupDescCodexInstructionsEnabled is the schema descriptor for codex_instructions_enabled field.
++	groupDescCodexInstructionsEnabled := groupFields[53].Descriptor()
++	// group.DefaultCodexInstructionsEnabled holds the default value on creation for the codex_instructions_enabled field.
++	group.DefaultCodexInstructionsEnabled = groupDescCodexInstructionsEnabled.Default.(bool)
++	// groupDescCodexInstructions is the schema descriptor for codex_instructions field.
++	groupDescCodexInstructions := groupFields[54].Descriptor()
++	// group.DefaultCodexInstructions holds the default value on creation for the codex_instructions field.
++	group.DefaultCodexInstructions = groupDescCodexInstructions.Default.(string)
+ 	// groupDescRpmLimit is the schema descriptor for rpm_limit field.
+-	groupDescRpmLimit := groupFields[53].Descriptor()
++	groupDescRpmLimit := groupFields[55].Descriptor()
+ 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
+ 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+ 	// groupDescMaxReasoningEffort is the schema descriptor for max_reasoning_effort field.
+-	groupDescMaxReasoningEffort := groupFields[54].Descriptor()
++	groupDescMaxReasoningEffort := groupFields[56].Descriptor()
+ 	// group.DefaultMaxReasoningEffort holds the default value on creation for the max_reasoning_effort field.
+ 	group.DefaultMaxReasoningEffort = groupDescMaxReasoningEffort.Default.(string)
+ 	// group.MaxReasoningEffortValidator is a validator for the "max_reasoning_effort" field. It is called by the builders before save.
+ 	group.MaxReasoningEffortValidator = groupDescMaxReasoningEffort.Validators[0].(func(string) error)
+ 	// groupDescReasoningEffortMappings is the schema descriptor for reasoning_effort_mappings field.
+-	groupDescReasoningEffortMappings := groupFields[55].Descriptor()
++	groupDescReasoningEffortMappings := groupFields[57].Descriptor()
+ 	// group.DefaultReasoningEffortMappings holds the default value on creation for the reasoning_effort_mappings field.
+ 	group.DefaultReasoningEffortMappings = groupDescReasoningEffortMappings.Default.([]domain.ReasoningEffortMapping)
+ 	// groupDescProfitControlEnabled is the schema descriptor for profit_control_enabled field.
+-	groupDescProfitControlEnabled := groupFields[56].Descriptor()
++	groupDescProfitControlEnabled := groupFields[58].Descriptor()
+ 	// group.DefaultProfitControlEnabled holds the default value on creation for the profit_control_enabled field.
+ 	group.DefaultProfitControlEnabled = groupDescProfitControlEnabled.Default.(bool)
+ 	// groupDescProfitMinMargin is the schema descriptor for profit_min_margin field.
+-	groupDescProfitMinMargin := groupFields[57].Descriptor()
++	groupDescProfitMinMargin := groupFields[59].Descriptor()
+ 	// group.DefaultProfitMinMargin holds the default value on creation for the profit_min_margin field.
+ 	group.DefaultProfitMinMargin = groupDescProfitMinMargin.Default.(float64)
+ 	// groupDescProfitSafetyBuffer is the schema descriptor for profit_safety_buffer field.
+-	groupDescProfitSafetyBuffer := groupFields[58].Descriptor()
++	groupDescProfitSafetyBuffer := groupFields[60].Descriptor()
+ 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
+ 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+ 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
+diff --git a/backend/ent/schema/group.go b/backend/ent/schema/group.go
+index f195ac5..db2aa38 100644
+--- a/backend/ent/schema/group.go
++++ b/backend/ent/schema/group.go
+@@ -261,6 +261,15 @@ func (Group) Fields() []ent.Field {
+ 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+ 			Comment("自定义 /v1/models 展示列表配置；仅影响模型列表响应，不影响调度"),
+ 
++		// 分组级 Codex 指令注入配置，默认关闭，避免跨分组泄漏提示词。
++		field.Bool("codex_instructions_enabled").
++			Default(false).
++			Comment("是否为该分组的 Codex 请求注入分组级指令"),
++		field.String("codex_instructions").
++			Default("").
++			SchemaType(map[string]string{dialect.Postgres: "text"}).
++			Comment("分组级 Codex 指令正文；仅在开关启用时生效"),
++
+ 		// 分组级每分钟请求数上限（0 = 不限制）。设置后优先于用户级兜底生效。
+ 		field.Int("rpm_limit").
+ 			Default(0).
+diff --git a/backend/go.sum b/backend/go.sum
+index cdea1a5..46be708 100644
+--- a/backend/go.sum
++++ b/backend/go.sum
+@@ -273,6 +273,8 @@ github.com/icholy/digest v1.1.0 h1:HfGg9Irj7i+IX1o1QAmPfIBNu/Q5A5Tu3n/MED9k9H4=
+ github.com/icholy/digest v1.1.0/go.mod h1:QNrsSGQ5v7v9cReDI0+eyjsXGUoRSUZQHeQ5C4XLa0Y=
+ github.com/imroc/req/v3 v3.59.0 h1:PqKhJHyBmJYob47LVuTHwRZE00ZO6icbLHe5Zra13jo=
+ github.com/imroc/req/v3 v3.59.0/go.mod h1:cwLwwaE90Pq6ZMmKuHA9FivJbg3avnCH8/RA5lUUs74=
++github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
++github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+ github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
+ github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
+ github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
+diff --git a/backend/internal/handler/admin/group_handler.go b/backend/internal/handler/admin/group_handler.go
+index dfbd4eb..9b1e8db 100644
+--- a/backend/internal/handler/admin/group_handler.go
++++ b/backend/internal/handler/admin/group_handler.go
+@@ -152,6 +152,8 @@ type CreateGroupRequest struct {
+ 	DefaultMappedModel          string                                    `json:"default_mapped_model"`
+ 	MessagesDispatchModelConfig service.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config"`
+ 	ModelsListConfig            service.GroupModelsListConfig             `json:"models_list_config"`
++	CodexInstructionsEnabled    bool                                      `json:"codex_instructions_enabled"`
++	CodexInstructions           string                                    `json:"codex_instructions"`
+ 	// 分组 RPM 上限（0 = 不限制）
+ 	RPMLimit int `json:"rpm_limit"`
+ 	// OpenAI/Codex 请求推理强度上限，空字符串表示不限制。
+@@ -221,6 +223,8 @@ type UpdateGroupRequest struct {
+ 	DefaultMappedModel          *string                                    `json:"default_mapped_model"`
+ 	MessagesDispatchModelConfig *service.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config"`
+ 	ModelsListConfig            *service.GroupModelsListConfig             `json:"models_list_config"`
++	CodexInstructionsEnabled    *bool                                      `json:"codex_instructions_enabled"`
++	CodexInstructions           *string                                    `json:"codex_instructions"`
+ 	// 分组 RPM 上限（0 = 不限制）；nil 表示未提供不改动
+ 	RPMLimit *int `json:"rpm_limit"`
+ 	// OpenAI/Codex 请求推理强度上限；空字符串清除，nil 不修改。
+@@ -555,6 +559,8 @@ func (h *GroupHandler) Create(c *gin.Context) {
+ 		DefaultMappedModel:              req.DefaultMappedModel,
+ 		MessagesDispatchModelConfig:     req.MessagesDispatchModelConfig,
+ 		ModelsListConfig:                req.ModelsListConfig,
++		CodexInstructionsEnabled:        req.CodexInstructionsEnabled,
++		CodexInstructions:               req.CodexInstructions,
+ 		RPMLimit:                        req.RPMLimit,
+ 		MaxReasoningEffort:              req.MaxReasoningEffort,
+ 		ReasoningEffortMappings:         req.ReasoningEffortMappings,
+@@ -684,6 +690,8 @@ func (h *GroupHandler) Update(c *gin.Context) {
+ 		DefaultMappedModel:              req.DefaultMappedModel,
+ 		MessagesDispatchModelConfig:     req.MessagesDispatchModelConfig,
+ 		ModelsListConfig:                req.ModelsListConfig,
++		CodexInstructionsEnabled:        req.CodexInstructionsEnabled,
++		CodexInstructions:               req.CodexInstructions,
+ 		RPMLimit:                        req.RPMLimit,
+ 		MaxReasoningEffort:              req.MaxReasoningEffort,
+ 		ReasoningEffortMappings:         req.ReasoningEffortMappings,
+diff --git a/backend/internal/handler/dto/mappers.go b/backend/internal/handler/dto/mappers.go
+index d5a9403..dabb631 100644
+--- a/backend/internal/handler/dto/mappers.go
++++ b/backend/internal/handler/dto/mappers.go
+@@ -156,6 +156,8 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
+ 		DefaultMappedModel:          g.DefaultMappedModel,
+ 		MessagesDispatchModelConfig: g.MessagesDispatchModelConfig,
+ 		ModelsListConfig:            g.ModelsListConfig,
++		CodexInstructionsEnabled:    g.CodexInstructionsEnabled,
++		CodexInstructions:           g.CodexInstructions,
+ 		SupportedModelScopes:        g.SupportedModelScopes,
+ 		AccountCount:                g.AccountCount,
+ 		ActiveAccountCount:          g.ActiveAccountCount,
+diff --git a/backend/internal/handler/dto/types.go b/backend/internal/handler/dto/types.go
+index 2cd623f..43beadc 100644
+--- a/backend/internal/handler/dto/types.go
++++ b/backend/internal/handler/dto/types.go
+@@ -181,6 +181,8 @@ type AdminGroup struct {
+ 	DefaultMappedModel          string                                   `json:"default_mapped_model"`
+ 	MessagesDispatchModelConfig domain.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config"`
+ 	ModelsListConfig            domain.GroupModelsListConfig             `json:"models_list_config"`
++	CodexInstructionsEnabled    bool                                     `json:"codex_instructions_enabled"`
++	CodexInstructions           string                                   `json:"codex_instructions"`
+ 
+ 	// 支持的模型系列（仅 antigravity 平台使用）
+ 	SupportedModelScopes    []string       `json:"supported_model_scopes"`
+diff --git a/backend/internal/handler/gateway_handler.go b/backend/internal/handler/gateway_handler.go
+index 07315d5..94c3aba 100644
+--- a/backend/internal/handler/gateway_handler.go
++++ b/backend/internal/handler/gateway_handler.go
+@@ -156,6 +156,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
+ 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "messages", apiKey.Group); injectErr != nil {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	setOpsRequestContext(c, "", false)
+ 
+diff --git a/backend/internal/handler/gateway_handler_chat_completions.go b/backend/internal/handler/gateway_handler_chat_completions.go
+index ea4e839..ca2090e 100644
+--- a/backend/internal/handler/gateway_handler_chat_completions.go
++++ b/backend/internal/handler/gateway_handler_chat_completions.go
+@@ -67,6 +67,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
+ 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "chat_completions", apiKey.Group); injectErr != nil {
++		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	// Extract model and stream
+ 	modelResult := gjson.GetBytes(body, "model")
+diff --git a/backend/internal/handler/gateway_handler_responses.go b/backend/internal/handler/gateway_handler_responses.go
+index 7f49f39..166e991 100644
+--- a/backend/internal/handler/gateway_handler_responses.go
++++ b/backend/internal/handler/gateway_handler_responses.go
+@@ -67,6 +67,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
+ 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "responses", apiKey.Group); injectErr != nil {
++		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	// Extract model and stream using gjson (like OpenAI handler)
+ 	modelResult := gjson.GetBytes(body, "model")
+diff --git a/backend/internal/handler/openai_chat_completions.go b/backend/internal/handler/openai_chat_completions.go
+index 42dc131..26083fb 100644
+--- a/backend/internal/handler/openai_chat_completions.go
++++ b/backend/internal/handler/openai_chat_completions.go
+@@ -62,6 +62,12 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
+ 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "chat_completions", apiKey.Group); injectErr != nil {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	if !gjson.ValidBytes(body) {
+ 		logRequestBodyParseFailure(reqLog, body, nil)
+diff --git a/backend/internal/handler/openai_gateway_handler.go b/backend/internal/handler/openai_gateway_handler.go
+index 1695ecc..26e724f 100644
+--- a/backend/internal/handler/openai_gateway_handler.go
++++ b/backend/internal/handler/openai_gateway_handler.go
+@@ -291,6 +291,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
+ 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "responses", apiKey.Group); injectErr != nil {
++		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	setOpsRequestContext(c, "", false)
+ 	sessionHashBody := body
+@@ -951,6 +957,12 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
+ 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+ 		return
+ 	}
++	if injected, changed, injectErr := service.ApplyGroupCodexInstructions(body, "messages", apiKey.Group); injectErr != nil {
++		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", injectErr.Error())
++		return
++	} else if changed {
++		body = injected
++	}
+ 
+ 	if !gjson.ValidBytes(body) {
+ 		logRequestBodyParseFailure(reqLog, body, nil)
+diff --git a/backend/internal/repository/api_key_repo.go b/backend/internal/repository/api_key_repo.go
+index 388562f..ec4f5b1 100644
+--- a/backend/internal/repository/api_key_repo.go
++++ b/backend/internal/repository/api_key_repo.go
+@@ -1010,6 +1010,8 @@ func groupEntityToService(g *dbent.Group) *service.Group {
+ 		DefaultMappedModel:              g.DefaultMappedModel,
+ 		MessagesDispatchModelConfig:     g.MessagesDispatchModelConfig,
+ 		ModelsListConfig:                g.ModelsListConfig,
++		CodexInstructionsEnabled:        g.CodexInstructionsEnabled,
++		CodexInstructions:               g.CodexInstructions,
+ 		RPMLimit:                        g.RpmLimit,
+ 		MaxReasoningEffort:              g.MaxReasoningEffort,
+ 		ReasoningEffortMappings:         g.ReasoningEffortMappings,
+diff --git a/backend/internal/repository/group_repo.go b/backend/internal/repository/group_repo.go
+index b5de463..934fc76 100644
+--- a/backend/internal/repository/group_repo.go
++++ b/backend/internal/repository/group_repo.go
+@@ -108,6 +108,8 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
+ 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
+ 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
+ 		SetModelsListConfig(groupIn.ModelsListConfig).
++		SetCodexInstructionsEnabled(groupIn.CodexInstructionsEnabled).
++		SetCodexInstructions(groupIn.CodexInstructions).
+ 		SetRpmLimit(groupIn.RPMLimit).
+ 		SetMaxReasoningEffort(groupIn.MaxReasoningEffort).
+ 		SetReasoningEffortMappings(groupIn.ReasoningEffortMappings).
+@@ -284,6 +286,8 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
+ 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
+ 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
+ 		SetModelsListConfig(groupIn.ModelsListConfig).
++		SetCodexInstructionsEnabled(groupIn.CodexInstructionsEnabled).
++		SetCodexInstructions(groupIn.CodexInstructions).
+ 		SetRpmLimit(groupIn.RPMLimit).
+ 		SetMaxReasoningEffort(groupIn.MaxReasoningEffort).
+ 		SetReasoningEffortMappings(groupIn.ReasoningEffortMappings).
+diff --git a/backend/internal/service/admin_group.go b/backend/internal/service/admin_group.go
+index ac62595..e78a10a 100644
+--- a/backend/internal/service/admin_group.go
++++ b/backend/internal/service/admin_group.go
+@@ -505,6 +505,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
+ 		DefaultMappedModel:              input.DefaultMappedModel,
+ 		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
+ 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
++		CodexInstructionsEnabled:        input.CodexInstructionsEnabled && strings.TrimSpace(input.CodexInstructions) != "",
++		CodexInstructions:               strings.TrimSpace(input.CodexInstructions),
+ 		RPMLimit:                        input.RPMLimit,
+ 		MaxReasoningEffort:              maxReasoningEffort,
+ 		ReasoningEffortMappings:         reasoningEffortMappings,
+@@ -872,6 +874,15 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
+ 	if input.ModelsListConfig != nil {
+ 		group.ModelsListConfig = normalizeGroupModelsListConfig(*input.ModelsListConfig)
+ 	}
++	if input.CodexInstructionsEnabled != nil {
++		group.CodexInstructionsEnabled = *input.CodexInstructionsEnabled
++	}
++	if input.CodexInstructions != nil {
++		group.CodexInstructions = strings.TrimSpace(*input.CodexInstructions)
++	}
++	if strings.TrimSpace(group.CodexInstructions) == "" {
++		group.CodexInstructionsEnabled = false
++	}
+ 	if input.RPMLimit != nil {
+ 		group.RPMLimit = *input.RPMLimit
+ 	}
+diff --git a/backend/internal/service/admin_service.go b/backend/internal/service/admin_service.go
+index 3030b94..7bd75dc 100644
+--- a/backend/internal/service/admin_service.go
++++ b/backend/internal/service/admin_service.go
+@@ -268,6 +268,9 @@ type CreateGroupInput struct {
+ 	RequirePrivacySet           bool
+ 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig
+ 	ModelsListConfig            GroupModelsListConfig
++	// 分组级 Codex 指令注入配置。
++	CodexInstructionsEnabled bool
++	CodexInstructions        string
+ 	// RPMLimit 分组 RPM 上限（0 = 不限制）
+ 	RPMLimit int
+ 	// MaxReasoningEffort OpenAI/Codex 请求的推理强度上限，空字符串表示不限制。
+@@ -343,6 +346,9 @@ type UpdateGroupInput struct {
+ 	RequirePrivacySet           *bool
+ 	MessagesDispatchModelConfig *OpenAIMessagesDispatchModelConfig
+ 	ModelsListConfig            *GroupModelsListConfig
++	// nil 表示不修改；正文会在 service 层去除首尾空白。
++	CodexInstructionsEnabled *bool
++	CodexInstructions        *string
+ 	// RPMLimit 分组 RPM 上限（0 = 不限制），nil 表示未提供不改动。
+ 	RPMLimit *int
+ 	// MaxReasoningEffort 空字符串表示清除上限；nil 表示未提供不改动。
+diff --git a/backend/internal/service/api_key_auth_cache.go b/backend/internal/service/api_key_auth_cache.go
+index 5fdc96b..22a7141 100644
+--- a/backend/internal/service/api_key_auth_cache.go
++++ b/backend/internal/service/api_key_auth_cache.go
+@@ -103,6 +103,8 @@ type APIKeyAuthGroupSnapshot struct {
+ 	DefaultMappedModel          string                            `json:"default_mapped_model,omitempty"`
+ 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
+ 	ModelsListConfig            GroupModelsListConfig             `json:"models_list_config,omitempty"`
++	CodexInstructionsEnabled    bool                              `json:"codex_instructions_enabled"`
++	CodexInstructions           string                            `json:"codex_instructions,omitempty"`
+ 
+ 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制）；用于 billing_cache_service.checkRPM 级联判断。
+ 	RPMLimit int `json:"rpm_limit"`
+diff --git a/backend/internal/service/api_key_auth_cache_impl.go b/backend/internal/service/api_key_auth_cache_impl.go
+index 696f21b..3827ade 100644
+--- a/backend/internal/service/api_key_auth_cache_impl.go
++++ b/backend/internal/service/api_key_auth_cache_impl.go
+@@ -14,7 +14,7 @@ import (
+ 	"github.com/dgraph-io/ristretto"
+ )
+ 
+-const apiKeyAuthSnapshotVersion = 19 // v19: group search/audio/video_model_prices billing fields (force refresh of pre-fix snapshots)
++const apiKeyAuthSnapshotVersion = 20 // v20: group-scoped Codex instructions
+ 
+ type apiKeyAuthCacheConfig struct {
+ 	l1Size        int
+@@ -418,6 +418,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey)
+ 			DefaultMappedModel:              apiKey.Group.DefaultMappedModel,
+ 			MessagesDispatchModelConfig:     apiKey.Group.MessagesDispatchModelConfig,
+ 			ModelsListConfig:                apiKey.Group.ModelsListConfig,
++			CodexInstructionsEnabled:        apiKey.Group.CodexInstructionsEnabled,
++			CodexInstructions:               apiKey.Group.CodexInstructions,
+ 			RPMLimit:                        apiKey.Group.RPMLimit,
+ 			MaxReasoningEffort:              apiKey.Group.MaxReasoningEffort,
+ 			ReasoningEffortMappings:         apiKey.Group.ReasoningEffortMappings,
+@@ -513,6 +515,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
+ 			DefaultMappedModel:              snapshot.Group.DefaultMappedModel,
+ 			MessagesDispatchModelConfig:     snapshot.Group.MessagesDispatchModelConfig,
+ 			ModelsListConfig:                snapshot.Group.ModelsListConfig,
++			CodexInstructionsEnabled:        snapshot.Group.CodexInstructionsEnabled,
++			CodexInstructions:               snapshot.Group.CodexInstructions,
+ 			RPMLimit:                        snapshot.Group.RPMLimit,
+ 			MaxReasoningEffort:              snapshot.Group.MaxReasoningEffort,
+ 			ReasoningEffortMappings:         snapshot.Group.ReasoningEffortMappings,
+diff --git a/backend/internal/service/api_key_auth_cache_profit_test.go b/backend/internal/service/api_key_auth_cache_profit_test.go
+index 40519f2..40e0ca7 100644
+--- a/backend/internal/service/api_key_auth_cache_profit_test.go
++++ b/backend/internal/service/api_key_auth_cache_profit_test.go
+@@ -29,17 +29,19 @@ func profitAuthTestAPIKey() *APIKey {
+ 			Concurrency: 5,
+ 		},
+ 		Group: &Group{
+-			ID:                   groupID,
+-			Name:                 "VIP-roundtrip",
+-			Platform:             PlatformOpenAI,
+-			Status:               StatusActive,
+-			Hydrated:             true,
+-			RateMultiplier:       0.06,
+-			SubscriptionType:     SubscriptionTypeStandard,
+-			PeakRateEnabled:      false,
+-			ProfitControlEnabled: true,
+-			ProfitMinMargin:      0.2,
+-			ProfitSafetyBuffer:   0.05,
++			ID:                       groupID,
++			Name:                     "VIP-roundtrip",
++			Platform:                 PlatformOpenAI,
++			Status:                   StatusActive,
++			Hydrated:                 true,
++			RateMultiplier:           0.06,
++			SubscriptionType:         SubscriptionTypeStandard,
++			PeakRateEnabled:          false,
++			ProfitControlEnabled:     true,
++			ProfitMinMargin:          0.2,
++			ProfitSafetyBuffer:       0.05,
++			CodexInstructionsEnabled: true,
++			CodexInstructions:        "group rules",
+ 		},
+ 	}
+ }
+@@ -53,7 +55,7 @@ func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
+ 	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+ 	require.NotNil(t, snapshot)
+ 	require.Equal(t, apiKeyAuthSnapshotVersion, snapshot.Version)
+-	require.Equal(t, 19, snapshot.Version, "v19 起认证快照携带 search/audio/video_model_prices 计费字段")
++	require.Equal(t, 20, snapshot.Version, "v20 起认证快照携带分组级 Codex 指令字段")
+ 
+ 	// 模拟 L2 缓存的完整 JSON 往返（与 apiKeyCache.SetAuthCache/GetAuthCache 同构）。
+ 	payload, err := json.Marshal(&APIKeyAuthCacheEntry{Snapshot: snapshot})
+@@ -70,6 +72,8 @@ func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
+ 	require.InDelta(t, 0.2, materialized.Group.ProfitMinMargin, 1e-12)
+ 	require.InDelta(t, 0.05, materialized.Group.ProfitSafetyBuffer, 1e-12)
+ 	require.InDelta(t, 0.06, materialized.Group.RateMultiplier, 1e-12)
++	require.True(t, materialized.Group.CodexInstructionsEnabled)
++	require.Equal(t, "group rules", materialized.Group.CodexInstructions)
+ 
+ 	// 中间件语义：materialized.Group 进请求 ctx → 门必须按快照配置装上。
+ 	ctx := context.WithValue(context.Background(), ctxkey.Group, materialized.Group)
+diff --git a/backend/internal/service/group.go b/backend/internal/service/group.go
+index bf0440a..e2e0026 100644
+--- a/backend/internal/service/group.go
++++ b/backend/internal/service/group.go
+@@ -105,6 +105,9 @@ type Group struct {
+ 	DefaultMappedModel          string
+ 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig
+ 	ModelsListConfig            GroupModelsListConfig
++	// CodexInstructions are merged at the protocol boundary when enabled.
++	CodexInstructionsEnabled bool
++	CodexInstructions        string
+ 
+ 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制）。
+ 	// 一旦设置即接管该分组用户的限流（覆盖用户级 rpm_limit），可被 user-group rpm_override 进一步覆盖。
+diff --git a/backend/internal/service/group_codex_instructions.go b/backend/internal/service/group_codex_instructions.go
+new file mode 100644
+index 0000000..d48d931
+--- /dev/null
++++ b/backend/internal/service/group_codex_instructions.go
+@@ -0,0 +1,133 @@
++package service
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"io"
++	"strings"
++)
++
++// ApplyGroupCodexInstructions applies a group's instructions once at the
++// protocol boundary. Callers should invoke it before account failover loops.
++func ApplyGroupCodexInstructions(body []byte, endpoint string, group *Group) ([]byte, bool, error) {
++	if group == nil || !group.CodexInstructionsEnabled {
++		return body, false, nil
++	}
++	instructions := strings.TrimSpace(group.CodexInstructions)
++	if instructions == "" {
++		return body, false, nil
++	}
++
++	decoder := json.NewDecoder(bytes.NewReader(body))
++	decoder.UseNumber()
++	var request map[string]any
++	if err := decoder.Decode(&request); err != nil {
++		return body, false, fmt.Errorf("decode request for group Codex instructions: %w", err)
++	}
++	if err := decoder.Decode(&struct{}{}); err != io.EOF {
++		return body, false, fmt.Errorf("decode request for group Codex instructions: trailing JSON content")
++	}
++	if request == nil {
++		return body, false, fmt.Errorf("request body must be a JSON object")
++	}
++
++	var changed bool
++	switch strings.ToLower(strings.TrimSpace(endpoint)) {
++	case "responses":
++		existing, ok := request["instructions"].(string)
++		if request["instructions"] != nil && !ok {
++			return body, false, fmt.Errorf("instructions must be a string")
++		}
++		merged := mergeGroupInstruction(instructions, existing)
++		if existing != merged {
++			request["instructions"] = merged
++			changed = true
++		}
++	case "chat_completions":
++		messages, ok := request["messages"].([]any)
++		if !ok {
++			// Responses-shaped compatibility requests still use top-level instructions.
++			if existing, isString := request["instructions"].(string); isString || request["instructions"] == nil {
++				merged := mergeGroupInstruction(instructions, existing)
++				if existing != merged {
++					request["instructions"] = merged
++					changed = true
++				}
++			}
++			break
++		}
++		request["messages"], changed = prependSystemMessage(messages, instructions)
++	case "messages":
++		changed = applyAnthropicSystemInstruction(request, instructions)
++	default:
++		return body, false, nil
++	}
++	if !changed {
++		return body, false, nil
++	}
++	out, err := json.Marshal(request)
++	if err != nil {
++		return body, false, fmt.Errorf("encode request with group Codex instructions: %w", err)
++	}
++	return out, true, nil
++}
++
++func mergeGroupInstruction(groupInstruction, existing string) string {
++	groupInstruction = strings.TrimSpace(groupInstruction)
++	existing = strings.TrimSpace(existing)
++	if existing == "" {
++		return groupInstruction
++	}
++	if existing == groupInstruction || strings.HasPrefix(existing, groupInstruction+"\n\n") {
++		return existing
++	}
++	return groupInstruction + "\n\n" + existing
++}
++
++func prependSystemMessage(messages []any, instructions string) ([]any, bool) {
++	if len(messages) > 0 {
++		if first, ok := messages[0].(map[string]any); ok && strings.EqualFold(fmt.Sprint(first["role"]), "system") {
++			if content, ok := first["content"].(string); ok {
++				merged := mergeGroupInstruction(instructions, content)
++				if merged == content {
++					return messages, false
++				}
++				first["content"] = merged
++				return messages, true
++			}
++		}
++	}
++	return append([]any{map[string]any{"role": "system", "content": instructions}}, messages...), true
++}
++
++func applyAnthropicSystemInstruction(request map[string]any, instructions string) bool {
++	system, exists := request["system"]
++	if !exists || system == nil {
++		request["system"] = instructions
++		return true
++	}
++	if existing, ok := system.(string); ok {
++		merged := mergeGroupInstruction(instructions, existing)
++		if merged == existing {
++			return false
++		}
++		request["system"] = merged
++		return true
++	}
++	if blocks, ok := system.([]any); ok {
++		if len(blocks) > 0 {
++			if first, ok := blocks[0].(map[string]any); ok && first["type"] == "text" {
++				if text, ok := first["text"].(string); ok && strings.TrimSpace(text) == instructions {
++					return false
++				}
++			}
++		}
++		request["system"] = append([]any{map[string]any{"type": "text", "text": instructions}}, blocks...)
++		return true
++	}
++	// Preserve malformed client input semantics as much as possible and let the
++	// existing protocol validator report the original shape later.
++	request["system"] = instructions
++	return true
++}
+diff --git a/backend/internal/service/group_codex_instructions_test.go b/backend/internal/service/group_codex_instructions_test.go
+new file mode 100644
+index 0000000..233a1df
+--- /dev/null
++++ b/backend/internal/service/group_codex_instructions_test.go
+@@ -0,0 +1,97 @@
++package service
++
++import (
++	"encoding/json"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestApplyGroupCodexInstructions(t *testing.T) {
++	group := &Group{CodexInstructionsEnabled: true, CodexInstructions: "group rules"}
++	tests := []struct {
++		name     string
++		endpoint string
++		body     string
++		assert   func(t *testing.T, body map[string]any)
++	}{
++		{
++			name: "responses merges top level instructions", endpoint: "responses",
++			body: `{"model":"gpt-5","instructions":"client rules"}`,
++			assert: func(t *testing.T, body map[string]any) {
++				require.Equal(t, "group rules\n\nclient rules", body["instructions"])
++			},
++		},
++		{
++			name: "chat prepends system message", endpoint: "chat_completions",
++			body: `{"model":"gpt-5","messages":[{"role":"user","content":"hi"}]}`,
++			assert: func(t *testing.T, body map[string]any) {
++				messages := body["messages"].([]any)
++				require.Equal(t, "system", messages[0].(map[string]any)["role"])
++				require.Equal(t, "group rules", messages[0].(map[string]any)["content"])
++			},
++		},
++		{
++			name: "anthropic prepends system block", endpoint: "messages",
++			body: `{"model":"claude","system":[{"type":"text","text":"client"}]}`,
++			assert: func(t *testing.T, body map[string]any) {
++				blocks := body["system"].([]any)
++				require.Equal(t, "group rules", blocks[0].(map[string]any)["text"])
++			},
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			out, changed, err := ApplyGroupCodexInstructions([]byte(tt.body), tt.endpoint, group)
++			require.NoError(t, err)
++			require.True(t, changed)
++			var decoded map[string]any
++			require.NoError(t, json.Unmarshal(out, &decoded))
++			tt.assert(t, decoded)
++		})
++	}
++}
++
++func TestApplyGroupCodexInstructionsDisabledIsNoop(t *testing.T) {
++	body := []byte(`{"model":"gpt-5"}`)
++	out, changed, err := ApplyGroupCodexInstructions(body, "responses", &Group{CodexInstructions: "rules"})
++	require.NoError(t, err)
++	require.False(t, changed)
++	require.Equal(t, body, out)
++}
++
++func TestApplyGroupCodexInstructionsIsIdempotent(t *testing.T) {
++	group := &Group{CodexInstructionsEnabled: true, CodexInstructions: "group rules"}
++	tests := []struct {
++		endpoint string
++		body     string
++	}{
++		{endpoint: "responses", body: `{"model":"gpt-5","instructions":"client rules"}`},
++		{endpoint: "chat_completions", body: `{"messages":[{"role":"system","content":"client rules"}]}`},
++		{endpoint: "messages", body: `{"system":[{"type":"text","text":"client rules"}]}`},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.endpoint, func(t *testing.T) {
++			first, changed, err := ApplyGroupCodexInstructions([]byte(tt.body), tt.endpoint, group)
++			require.NoError(t, err)
++			require.True(t, changed)
++
++			second, changed, err := ApplyGroupCodexInstructions(first, tt.endpoint, group)
++			require.NoError(t, err)
++			require.False(t, changed)
++			require.Equal(t, first, second)
++		})
++	}
++}
++
++func TestApplyGroupCodexInstructionsRejectsTrailingJSON(t *testing.T) {
++	body := []byte(`{"model":"gpt-5"} {"extra":true}`)
++	out, changed, err := ApplyGroupCodexInstructions(body, "responses", &Group{
++		CodexInstructionsEnabled: true,
++		CodexInstructions:        "group rules",
++	})
++	require.Error(t, err)
++	require.False(t, changed)
++	require.Equal(t, body, out)
++}
+diff --git a/backend/migrations/224_group_codex_instructions.sql b/backend/migrations/224_group_codex_instructions.sql
+new file mode 100644
+index 0000000..157b1c6
+--- /dev/null
++++ b/backend/migrations/224_group_codex_instructions.sql
+@@ -0,0 +1,3 @@
++ALTER TABLE groups
++    ADD COLUMN IF NOT EXISTS codex_instructions_enabled BOOLEAN NOT NULL DEFAULT FALSE,
++    ADD COLUMN IF NOT EXISTS codex_instructions TEXT NOT NULL DEFAULT '';
+diff --git a/frontend/src/i18n/locales/en/admin/overview.ts b/frontend/src/i18n/locales/en/admin/overview.ts
+index 225865d..e605110 100644
+--- a/frontend/src/i18n/locales/en/admin/overview.ts
++++ b/frontend/src/i18n/locales/en/admin/overview.ts
+@@ -1028,6 +1028,13 @@ export default {
+           'Leave empty to use the default $0.01 per call (official pricing: $10 per 1,000 calls); 0 means free. The group rate multiplier is applied on top.',
+         finalPricePreview: 'Per-call price after current multiplier: {price}'
+       },
++      codexInstructions: {
++        title: 'Group Codex Instructions',
++        enabled: 'Enable instruction injection',
++        label: 'Codex instruction content',
++        placeholder: 'Enter system instructions for this group only',
++        hint: 'Only requests bound to this group through /v1/responses, /v1/chat/completions, and /v1/messages are modified. Other groups are unchanged.'
++      },
+       peakRate: {
+         enable: 'Enable peak rate multiplier',
+         peakStart: 'Peak start',
+diff --git a/frontend/src/i18n/locales/zh/admin/overview.ts b/frontend/src/i18n/locales/zh/admin/overview.ts
+index 200bb6c..16953d2 100644
+--- a/frontend/src/i18n/locales/zh/admin/overview.ts
++++ b/frontend/src/i18n/locales/zh/admin/overview.ts
+@@ -1025,6 +1025,13 @@ export default {
+           '留空使用默认价 $0.01/次（官方定价 $10/1000 次）；填 0 表示免费。实际扣费会叠加分组费率倍数。',
+         finalPricePreview: '应用当前倍率后的单次价格：{price}'
+       },
++      codexInstructions: {
++        title: '分组级 Codex 指令',
++        enabled: '启用指令注入',
++        label: 'Codex 指令内容',
++        placeholder: '输入仅对当前分组生效的系统指令',
++        hint: '仅注入绑定此分组的 /v1/responses、/v1/chat/completions 和 /v1/messages 请求，不影响其他分组。'
++      },
+       peakRate: {
+         enable: '启用高峰倍率',
+         peakStart: '高峰开始',
+diff --git a/frontend/src/types/index.ts b/frontend/src/types/index.ts
+index 19ef541..90543b8 100644
+--- a/frontend/src/types/index.ts
++++ b/frontend/src/types/index.ts
+@@ -630,6 +630,8 @@ export interface AdminGroup extends Group {
+   // OpenAI Messages 调度配置（仅 openai 平台使用）
+   default_mapped_model?: string
+   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
++  codex_instructions_enabled?: boolean
++  codex_instructions?: string
+   models_list_config?: ModelsListConfig
+ 
+   // 分组排序
+@@ -808,6 +810,8 @@ export interface CreateGroupRequest {
+   allow_live?: boolean
+   default_mapped_model?: string
+   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
++  codex_instructions_enabled?: boolean
++  codex_instructions?: string
+   model_routing?: Record<string, number[]> | null
+   model_routing_enabled?: boolean
+   rpm_limit?: number
+@@ -870,6 +874,8 @@ export interface UpdateGroupRequest {
+   allow_live?: boolean
+   default_mapped_model?: string
+   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
++  codex_instructions_enabled?: boolean
++  codex_instructions?: string
+   model_routing?: Record<string, number[]> | null
+   model_routing_enabled?: boolean
+   rpm_limit?: number
+diff --git a/frontend/src/views/admin/GroupsView.vue b/frontend/src/views/admin/GroupsView.vue
+index 904b892..1a8853b 100644
+--- a/frontend/src/views/admin/GroupsView.vue
++++ b/frontend/src/views/admin/GroupsView.vue
+@@ -1493,6 +1493,42 @@
+           </div>
+         </div>
+ 
++        <!-- 分组级 Codex 指令（仅 openai 平台） -->
++        <div
++          v-if="createForm.platform === 'openai'"
++          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
++        >
++          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
++            {{ t("admin.groups.codexInstructions.title") }}
++          </h4>
++          <div class="flex items-center justify-between gap-3">
++            <label class="text-sm text-gray-600 dark:text-gray-400">
++              {{ t("admin.groups.codexInstructions.enabled") }}
++            </label>
++            <button
++              type="button"
++              @click="createForm.codex_instructions_enabled = !createForm.codex_instructions_enabled"
++              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
++              :class="createForm.codex_instructions_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
++              :aria-pressed="createForm.codex_instructions_enabled"
++            >
++              <span
++                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
++                :class="createForm.codex_instructions_enabled ? 'translate-x-6' : 'translate-x-1'"
++              />
++            </button>
++          </div>
++          <textarea
++            v-model="createForm.codex_instructions"
++            rows="5"
++            class="input mt-3 min-h-28 resize-y font-mono text-sm"
++            :placeholder="t('admin.groups.codexInstructions.placeholder')"
++            :aria-label="t('admin.groups.codexInstructions.label')"
++          />
++          <p class="input-hint">
++            {{ t("admin.groups.codexInstructions.hint") }}
++          </p>
++        </div>
+ 
+         <div class="border-t border-gray-200 pt-4 mt-4 dark:border-dark-400">
+           <div class="flex items-start justify-between gap-4">
+@@ -3215,6 +3251,43 @@
+           </div>
+         </div>
+ 
++        <!-- 分组级 Codex 指令（仅 openai 平台） -->
++        <div
++          v-if="editForm.platform === 'openai'"
++          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
++        >
++          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
++            {{ t("admin.groups.codexInstructions.title") }}
++          </h4>
++          <div class="flex items-center justify-between gap-3">
++            <label class="text-sm text-gray-600 dark:text-gray-400">
++              {{ t("admin.groups.codexInstructions.enabled") }}
++            </label>
++            <button
++              type="button"
++              @click="editForm.codex_instructions_enabled = !editForm.codex_instructions_enabled"
++              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
++              :class="editForm.codex_instructions_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
++              :aria-pressed="editForm.codex_instructions_enabled"
++            >
++              <span
++                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
++                :class="editForm.codex_instructions_enabled ? 'translate-x-6' : 'translate-x-1'"
++              />
++            </button>
++          </div>
++          <textarea
++            v-model="editForm.codex_instructions"
++            rows="5"
++            class="input mt-3 min-h-28 resize-y font-mono text-sm"
++            :placeholder="t('admin.groups.codexInstructions.placeholder')"
++            :aria-label="t('admin.groups.codexInstructions.label')"
++          />
++          <p class="input-hint">
++            {{ t("admin.groups.codexInstructions.hint") }}
++          </p>
++        </div>
++
+ 
+         <div class="border-t border-gray-200 pt-4 mt-4 dark:border-dark-400">
+           <div class="flex items-start justify-between gap-4">
+@@ -5068,6 +5141,8 @@ const createForm = reactive({
+   // OpenAI Messages 调度配置（仅 openai 平台使用）
+   allow_messages_dispatch: false,
+   allow_live: false,
++  codex_instructions_enabled: false,
++  codex_instructions: "",
+   opus_mapped_model: createMessagesDispatchDefaults.opus_mapped_model,
+   sonnet_mapped_model: createMessagesDispatchDefaults.sonnet_mapped_model,
+   haiku_mapped_model: createMessagesDispatchDefaults.haiku_mapped_model,
+@@ -5429,6 +5504,8 @@ const editForm = reactive({
+   // OpenAI Messages 调度配置（仅 openai 平台使用）
+   allow_messages_dispatch: false,
+   allow_live: false,
++  codex_instructions_enabled: false,
++  codex_instructions: "",
+   default_mapped_model: '',
+   opus_mapped_model: editMessagesDispatchDefaults.opus_mapped_model,
+   sonnet_mapped_model: editMessagesDispatchDefaults.sonnet_mapped_model,
+@@ -5881,6 +5958,8 @@ const closeCreateModal = () => {
+   createForm.fallback_group_id_on_invalid_request = null;
+   resetMessagesDispatchFormState(createForm);
+   createForm.allow_live = false;
++  createForm.codex_instructions_enabled = false;
++  createForm.codex_instructions = "";
+   createForm.require_oauth_only = false;
+   createForm.require_privacy_set = false;
+   createForm.supported_model_scopes = ["claude", "gemini_text", "gemini_image"];
+@@ -6138,6 +6217,9 @@ const handleEdit = async (group: AdminGroup) => {
+     group.allow_messages_dispatch ||
+     messagesDispatchFormState.allow_messages_dispatch;
+   editForm.allow_live = group.allow_live ?? false;
++  editForm.codex_instructions_enabled =
++    group.codex_instructions_enabled ?? false;
++  editForm.codex_instructions = group.codex_instructions ?? "";
+   editForm.opus_mapped_model = messagesDispatchFormState.opus_mapped_model;
+   editForm.sonnet_mapped_model = messagesDispatchFormState.sonnet_mapped_model;
+   editForm.haiku_mapped_model = messagesDispatchFormState.haiku_mapped_model;
+@@ -6205,6 +6287,8 @@ const closeEditModal = () => {
+   editForm.audio_stt_price_per_hour = null;
+   resetMessagesDispatchFormState(editForm);
+   editForm.allow_live = false;
++  editForm.codex_instructions_enabled = false;
++  editForm.codex_instructions = "";
+   resetModelsListState(editModelsListState);
+ };
+ 

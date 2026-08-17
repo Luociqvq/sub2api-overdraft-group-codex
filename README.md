@@ -71,6 +71,18 @@ docker compose -f docker-compose.local.yml -f docker-compose.overdraft.yml ps
 
 To merge upstream Sub2API changes without losing these layers, keep the official repository as a separate `upstream` remote and run the focused tests before deployment. Do not overwrite the generated Ent files, migration 224, or the three custom service boundaries with an upstream binary.
 
+### Optional maintenance toolkit
+
+The same repository also contains `tools/sub2api-custom-deployer/`. It is not a second server implementation; it is an optional Codex plugin and patch set for reapplying and checking these three layers after an upstream update:
+
+```powershell
+pwsh -File tools/sub2api-custom-deployer/scripts/Deploy-Sub2ApiCustom.ps1 -RepoPath TARGET -CheckOnly
+pwsh -File tools/sub2api-custom-deployer/scripts/Deploy-Sub2ApiCustom.ps1 -RepoPath TARGET -RunTests
+pwsh -File tools/sub2api-custom-deployer/scripts/Test-Sub2ApiCustom.ps1 -RepoPath TARGET -RunTests -Frontend
+```
+
+The helpers require a clean target worktree, create a review branch, and stop before committing, pushing, restarting services, or changing production data. For this repository itself, the source code and the documentation above are sufficient; use the toolkit mainly when adapting a newer upstream checkout.
+
 The remaining feature, deployment, sponsor, and license text is inherited from the upstream Sub2API documentation. Upstream sponsorship does not imply sponsorship or endorsement of this fork.
 
 ## ⚠️ Important Notice

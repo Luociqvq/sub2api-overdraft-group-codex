@@ -1,0 +1,7 @@
+# Preserve patch payloads exactly; they contain intentional context whitespace.
+*.patch -text
+*.md text eol=lf
+*.json text eol=lf
+*.ps1 text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

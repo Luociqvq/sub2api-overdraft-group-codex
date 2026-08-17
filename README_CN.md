@@ -80,6 +80,18 @@ docker compose \
 
 升级后检查 `docker compose ps`、`/health` 和容器版本；迁移 224 会随应用启动自动执行。
 
+### 可选维护工具
+
+本仓库同时包含 `tools/sub2api-custom-deployer/`。它不是第二套 Sub2API 服务，而是用于上游更新后重新应用和检查三项定制功能的可选 Codex 插件及补丁工具：
+
+```powershell
+pwsh -File tools/sub2api-custom-deployer/scripts/Deploy-Sub2ApiCustom.ps1 -RepoPath TARGET -CheckOnly
+pwsh -File tools/sub2api-custom-deployer/scripts/Deploy-Sub2ApiCustom.ps1 -RepoPath TARGET -RunTests
+pwsh -File tools/sub2api-custom-deployer/scripts/Test-Sub2ApiCustom.ps1 -RepoPath TARGET -RunTests -Frontend
+```
+
+工具要求目标仓库工作区干净，会创建 review 分支，并在提交、推送、重启服务或修改生产数据前停止。对于本仓库本身，前面的源码和部署文档已经足够；这个工具主要用于适配更新后的上游 Sub2API 源码。
+
 源码镜像会把根目录的 `FORK_VERSION` 写入版本信息。管理后台检测到 Fork 新版本后只提示使用 `git pull` 更新源码，不会下载官方二进制覆盖透支功能。完整更新命令见部署指南的“日常升级本 Fork”。
 
 ## 如何确认透支成功

@@ -1,0 +1,34 @@
+{
+  "name": "sub2api-custom-deployer",
+  "version": "0.1.0+codex.20260817025026",
+  "description": "Reapply and verify the Sub2API armor group, Codex quota overdraft, and bounded 429 upstream reconnect customizations after upstream updates.",
+  "author": {
+    "name": "Local developer"
+  },
+  "keywords": [
+    "sub2api",
+    "deployment",
+    "patch",
+    "codex",
+    "overdraft"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Sub2API Custom Deployer",
+    "shortDescription": "Restore three Sub2API custom features after an update.",
+    "longDescription": "Applies and adapts three ordered Sub2API customizations: the Codex quota overdraft fork, the armor group (group-level Codex instructions), and bounded fresh-connection retries for selected upstream 429 responses. It preflights patches in a temporary Git worktree, preserves existing work, and verifies backend and frontend integration markers.",
+    "developerName": "Local developer",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "brandColor": "#2563EB",
+    "defaultPrompt": [
+      "\u66f4\u65b0 Sub2API \u540e\u6062\u590d\u7834\u7532\u5206\u7ec4\u3001\u989d\u5ea6\u900f\u652f\u548c 429 \u91cd\u8fde",
+      "\u68c0\u67e5\u5f53\u524d Sub2API \u662f\u5426\u5b8c\u6574\u5b89\u88c5\u4e09\u4e2a\u81ea\u5b9a\u4e49\u529f\u80fd",
+      "\u628a\u4e09\u4e2a\u529f\u80fd\u9002\u914d\u5230\u65b0\u7684 Sub2API \u4e0a\u6e38\u7248\u672c"
+    ]
+  }
+}

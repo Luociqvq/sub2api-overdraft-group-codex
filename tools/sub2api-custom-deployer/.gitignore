@@ -1,0 +1,20 @@
+# Generated and local files
+.git/
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local Sub2API/Cockpit runtime state
+config.yaml
+config.local.yaml
+data/
+auths/
+quota-reserve.json
+quota-pool-state.json
+manifest.local.json

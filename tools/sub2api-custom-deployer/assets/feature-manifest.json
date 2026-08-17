@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "plugin_version": "0.1.0",
+  "upstream": {
+    "repository": "Wei-Shaw/sub2api",
+    "tested_version": "0.1.177",
+    "tested_commit": "baeac1f3de21d37b129405f092ef86c24b3f203d"
+  },
+  "apply_order": [
+    {
+      "id": "codex-quota-overdraft",
+      "label": "额度透支服务",
+      "patch": "patches/01-overdraft-v0.1.177.patch",
+      "required_markers": [
+        "backend/internal/service/openai_codex_quota_overdraft.go:CodexQuotaOverdraftEnabled",
+        "backend/internal/service/openai_codex_quota_overdraft_probe.go:CodexQuotaOverdraftCoordinator",
+        "backend/cmd/server/wire_gen.go:ProvideCodexQuotaOverdraftCoordinator",
+        "deploy/config.example.yaml:codex_quota_overdraft_enabled"
+      ]
+    },
+    {
+      "id": "armor-group",
+      "label": "破甲分组（分组级 Codex 指令）",
+      "patch": "patches/02-armor-group-v0.1.177.patch",
+      "required_markers": [
+        "backend/internal/service/group_codex_instructions.go:ApplyGroupCodexInstructions",
+        "backend/ent/schema/group.go:codex_instructions_enabled",
+        "backend/migrations/224_group_codex_instructions.sql:codex_instructions",
+        "frontend/src/views/admin/GroupsView.vue:codex_instructions_enabled"
+      ]
+    },
+    {
+      "id": "upstream-429-reconnect",
+      "label": "429 上游断连重连",
+      "patch": "patches/03-upstream-429-reconnect-v0.1.177.patch",
+      "required_markers": [
+        "backend/internal/service/http_upstream_port.go:HTTPUpstreamConnectionResetter",
+        "backend/internal/repository/http_upstream.go:ResetConnections",
+        "backend/internal/service/openai_codex_quota_overdraft.go:shouldReconnectCodexQuotaOverdraft429",
+        "backend/internal/service/openai_gateway_forward.go:quotaReconnectAttempt"
+      ]
+    }
+  ],
+  "runtime_configuration": {
+    "gateway.codex_quota_overdraft_enabled": true
+  }
+}
