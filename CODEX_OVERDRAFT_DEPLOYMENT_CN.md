@@ -1,6 +1,6 @@
 # sub2api-overdraft 部署与运维指南
 
-本文档面向希望部署本项目、验证 Codex 5h / 7d 额度透支状态，以及后续安全升级的使用者。
+本文档面向希望部署本项目、验证三层定制功能，以及后续安全升级的使用者：破甲分组级 Codex 指令、Codex 5h / 7d 额度透支、受限上游 429 断连重连。
 
 本项目是 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的非官方衍生版本，公开项目名为 **sub2api-overdraft**。内部二进制名、Docker 服务名、数据目录和 Go module 仍保留 `sub2api`，这是为了兼容原项目并降低同步上游更新时的冲突。
 
@@ -10,8 +10,8 @@
 - `passed` 只代表探测时上游仍返回有效响应，不承诺之后始终可用，也不会绕过认证失效、账号禁用、网络故障或其他风控限制。
 - 探测请求和透支期请求都可能产生真实上游用量和费用。
 - 此行为可能不符合上游服务条款。部署者必须自行确认合规性，并承担账号限制、服务中断等风险。
-- 官方 Sub2API 安装脚本和 `weishaw/sub2api:latest` 镜像不包含本 Fork 的透支功能。
-- 本 Fork 的后台更新检查读取 `DeanZFC/sub2api-overdraft`，不会把官方 Sub2API Release 当作本项目更新。
+- 官方 Sub2API 安装脚本和 `weishaw/sub2api:latest` 镜像不包含本 Fork 的三层定制功能。
+- 本 Fork 的后台更新检查读取 `Luociqvq/sub2api-overdraft-group-codex` 的 `codex-overdraft` 分支，不会把官方 Sub2API Release 当作本项目更新。
 
 ## 功能范围
 
@@ -23,7 +23,9 @@
 - 当 5h 或 7d 额度首次达到 100%，或收到带明确额度证据的 429 时，最多执行 5 次真实探测。
 - 管理页面的 OpenAI OAuth 常规文本“测试账号连接”也使用相同请求形态，并接入同一套额度探测状态机。
 - 分别维护 5h、7d 透支周期，并在管理页面显示状态、请求数、Token、账号金额和预计恢复时间。
-- 将探测状态保存在现有 `accounts.extra` JSONB 字段中，不新增数据库表，不需要手动执行数据库迁移（migration）。
+- 将探测状态保存在现有 `accounts.extra` JSONB 字段中；分组指令字段由迁移 `224_group_codex_instructions.sql` 添加，并在应用启动时自动执行，不需要手动运行 SQL。
+- OpenAI 分组可配置 `codex_instructions_enabled` / `codex_instructions`，在管理后台的分组编辑页维护；普通用户分组 DTO 不返回指令正文。
+- 对无重置信息或明确 5h-only 的 429，服务会清理当前账号的上游连接池并在同一账号上最多重试 2 次；明确 7d 耗尽、已有重置时间或其他普通限流响应不会走该重连分支。
 
 以下端点不启用透支：`/responses/compact`、图片生成、Embedding、Count Tokens 和 Live；API Key、Shadow、图片及 Compact 的后台测试也不启用透支。
 
@@ -45,7 +47,7 @@
 ```bash
 sudo mkdir -p /opt
 cd /opt
-sudo git clone https://github.com/DeanZFC/sub2api-overdraft.git
+sudo git clone --branch codex-overdraft https://github.com/Luociqvq/sub2api-overdraft-group-codex.git
 sudo chown -R "$(id -u):$(id -g)" /opt/sub2api-overdraft
 cd /opt/sub2api-overdraft/deploy
 ```
@@ -199,7 +201,7 @@ git stash push -u -m "server changes before codex-overdraft switch"
 然后连接本 Fork 并切换到公开分支：
 
 ```bash
-git remote set-url origin https://github.com/DeanZFC/sub2api-overdraft.git
+git remote set-url origin https://github.com/Luociqvq/sub2api-overdraft-group-codex.git
 git fetch origin
 git switch codex-overdraft 2>/dev/null || \
   git switch -c codex-overdraft --track origin/codex-overdraft

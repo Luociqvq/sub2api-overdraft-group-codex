@@ -10,29 +10,36 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-**AI API gateway with Codex 5h / 7d quota overdraft probing, tracking, and recovery**
+**AI API gateway with group-scoped Codex instructions, 5h / 7d quota overdraft, and bounded 429 reconnects**
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
 </div>
 
 > [!IMPORTANT]
-> This is an unofficial fork of [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api), not an official Sub2API release. The upstream install script and `weishaw/sub2api:latest` image do not contain the overdraft feature. Build this fork from source as documented below.
+> This is an unofficial fork of [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api), not an official Sub2API release. The upstream install script and `weishaw/sub2api:latest` image do not contain these custom features. The maintained repository is [Luociqvq/sub2api-overdraft-group-codex](https://github.com/Luociqvq/sub2api-overdraft-group-codex); build this fork from source as documented below.
 
-## Fork Features
+## Custom Features
+
+This fork keeps three independent customization layers. They can be verified and updated together from the `codex-overdraft` branch.
+
+- **Group-scoped Codex instructions:** OpenAI groups have `codex_instructions_enabled` and `codex_instructions` fields. Enabled instructions are injected once into Responses, Chat Completions, and Anthropic-compatible message conversion paths. Configure them in **Admin → Groups**; the instruction text is not exposed in ordinary user group responses.
 
 - Runs up to five real probes after the reported Codex 5h or 7d quota reaches 100%.
 - Keeps an account schedulable after a successful probe and tracks overdraft requests, tokens, cost, and recovery for both windows independently.
 - Exposes `pending`, `passed`, `failed`, `inconclusive`, and `recovered` states in the admin UI and PostgreSQL.
 - Uses an atomic PostgreSQL claim for multi-instance deployments and requires no schema migration.
 - Supports an immediate configuration rollback to the upstream scheduling behavior.
+- **Bounded 429 reconnects:** for eligible headerless or explicit 5h-only quota 429 responses, the gateway closes the selected upstream connection pool and retries the same account at most twice. Explicit 7d exhaustion and reset-known responses keep the normal cooldown path.
+
+The group fields are added by migration `224_group_codex_instructions.sql`, which runs automatically during application startup. No manual SQL is required.
 
 See the **[Chinese deployment and operations guide](CODEX_OVERDRAFT_DEPLOYMENT_CN.md)** for source builds, migration, verification, upgrades, rollback, Nginx, and troubleshooting. Maintainers should also read [CODEX_QUOTA_OVERDRAFT_CUSTOMIZATION.md](CODEX_QUOTA_OVERDRAFT_CUSTOMIZATION.md).
 
 Quick start:
 
 ```bash
-git clone https://github.com/DeanZFC/sub2api-overdraft.git
+git clone --branch codex-overdraft https://github.com/Luociqvq/sub2api-overdraft-group-codex.git
 cd sub2api-overdraft/deploy
 cp .env.example .env
 # Set POSTGRES_PASSWORD, JWT_SECRET, and TOTP_ENCRYPTION_KEY in .env
@@ -44,6 +51,25 @@ docker compose \
 ```
 
 This fork remains licensed under [GNU LGPL-3.0](LICENSE) and preserves upstream attribution. The overdraft behavior may conflict with upstream provider terms and may incur real usage or account restrictions. Operators are responsible for compliance and risk.
+
+### Runtime switches and updates
+
+The overdraft switch is enabled by the Compose overlay or can be set explicitly:
+
+```yaml
+gateway:
+  codex_quota_overdraft_enabled: true
+```
+
+For an existing Compose deployment, pull the maintained branch and recreate only the application service:
+
+```bash
+git pull --ff-only origin codex-overdraft
+docker compose -f docker-compose.local.yml -f docker-compose.overdraft.yml up -d --build --force-recreate sub2api
+docker compose -f docker-compose.local.yml -f docker-compose.overdraft.yml ps
+```
+
+To merge upstream Sub2API changes without losing these layers, keep the official repository as a separate `upstream` remote and run the focused tests before deployment. Do not overwrite the generated Ent files, migration 224, or the three custom service boundaries with an upstream binary.
 
 The remaining feature, deployment, sponsor, and license text is inherited from the upstream Sub2API documentation. Upstream sponsorship does not imply sponsorship or endorsement of this fork.
 

@@ -10,16 +10,24 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-**带 Codex 5h / 7d 额度透支探测、统计与恢复的 AI API 网关**
+**带分组级 Codex 指令、5h / 7d 额度透支和受限 429 重连的 AI API 网关**
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
 </div>
 
 > [!IMPORTANT]
-> 这是基于 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的非官方 Fork，不是 Sub2API 官方发行版。官方安装脚本和 `weishaw/sub2api:latest` 镜像不包含本项目的透支功能，请按本仓库的源码构建文档部署。
+> 这是基于 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的非官方 Fork，不是 Sub2API 官方发行版。官方安装脚本和 `weishaw/sub2api:latest` 镜像不包含本项目的三层定制功能。维护仓库是 [Luociqvq/sub2api-overdraft-group-codex](https://github.com/Luociqvq/sub2api-overdraft-group-codex)，请按本仓库源码文档部署。
 
-## 本 Fork 增加的功能
+## 本 Fork 的三层定制功能
+
+### 1. 破甲分组：分组级 Codex 指令
+
+- OpenAI 分组新增 `codex_instructions_enabled` 和 `codex_instructions` 字段。
+- 在管理后台 **分组管理 → OpenAI 分组** 中配置开关和指令正文。
+- 开启后，指令会在 Responses、Chat Completions 以及 Anthropic 兼容消息转换路径中注入一次，避免重试重复追加。
+- 普通用户的分组信息不返回指令正文；管理员接口可以查看和编辑。
+- 数据库迁移文件为 `backend/migrations/224_group_codex_instructions.sql`，服务启动时自动执行，不需要手工建表或执行 SQL。
 
 - Codex 5h / 7d 额度达到 100% 后，最多执行 5 次真实请求探测，判断账号是否仍可继续调用。
 - 探测成功后继续参与账号调度，并分别统计 5h / 7d 透支期请求数、Token 和金额。
@@ -27,7 +35,8 @@
 - 网络、超时、5xx 和普通瞬时 429 不会被误判为额度耗尽；401/403、账号禁用和其他风控仍使用原有策略。
 - 多实例通过 PostgreSQL 原子领取（atomic claim）去重；状态保存在现有 `accounts.extra`，无需新增数据表。
 - 可通过一个配置开关立即关闭，恢复上游 Sub2API 的调度和请求行为。
-- 管理后台从 `DeanZFC/sub2api-overdraft` 的 `codex-overdraft` 分支检查更新，不再使用官方 Sub2API 的版本结果。
+- 对符合条件的无重置信息或明确 5h-only 的上游 429，关闭当前上游连接池并在同一账号上最多重试 2 次；明确 7d 耗尽或已有重置时间的 429 仍走原有冷却逻辑。
+- 管理后台从本仓库 `codex-overdraft` 分支检查更新，不再使用官方 Sub2API 的版本结果。
 
 ## 快速部署
 
@@ -38,7 +47,7 @@
 最短部署流程：
 
 ```bash
-git clone https://github.com/DeanZFC/sub2api-overdraft.git
+git clone --branch codex-overdraft https://github.com/Luociqvq/sub2api-overdraft-group-codex.git
 cd sub2api-overdraft/deploy
 cp .env.example .env
 chmod 600 .env
@@ -58,6 +67,18 @@ gateway:
 ```
 
 公开的 `docker-compose.overdraft.yml` 已通过环境变量默认开启该功能。
+
+已有部署升级时：
+
+```bash
+git pull --ff-only origin codex-overdraft
+docker compose \
+  -f docker-compose.local.yml \
+  -f docker-compose.overdraft.yml \
+  up -d --build --force-recreate sub2api
+```
+
+升级后检查 `docker compose ps`、`/health` 和容器版本；迁移 224 会随应用启动自动执行。
 
 源码镜像会把根目录的 `FORK_VERSION` 写入版本信息。管理后台检测到 Fork 新版本后只提示使用 `git pull` 更新源码，不会下载官方二进制覆盖透支功能。完整更新命令见部署指南的“日常升级本 Fork”。
 
@@ -335,7 +356,7 @@ sudo systemctl enable sub2api
 
 #### 升级
 
-官方发行版可以直接在管理后台进行二进制在线升级。本 Fork 使用源码构建，管理后台会读取 `DeanZFC/sub2api-overdraft` 的 `FORK_VERSION` 检测新版本，并提示使用 `git pull` 后重新构建；不会在线替换二进制。
+官方发行版可以直接在管理后台进行二进制在线升级。本 Fork 使用源码构建，管理后台会读取 `Luociqvq/sub2api-overdraft-group-codex` 的 `FORK_VERSION` 检测新版本，并提示使用 `git pull` 后重新构建；不会在线替换二进制。
 
 本 Fork 的升级命令见 [日常升级本 Fork](CODEX_OVERDRAFT_DEPLOYMENT_CN.md#日常升级本-fork)。源码构建不支持页面内一键升级和在线回退，避免误装官方二进制而丢失透支功能。
 

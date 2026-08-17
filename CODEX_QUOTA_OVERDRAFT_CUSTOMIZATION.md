@@ -1,7 +1,15 @@
-# sub2api-overdraft 5h / 7d 额度透支定制记录
+# sub2api-overdraft 三层定制记录
 
 本文件是维护者实现与升级记录。面向部署者的完整安装、验证、升级和故障排查说明见
 [CODEX_OVERDRAFT_DEPLOYMENT_CN.md](CODEX_OVERDRAFT_DEPLOYMENT_CN.md)。
+
+## 三层定制
+
+本仓库 `codex-overdraft` 分支同时维护以下功能：
+
+1. **额度透支服务**：Codex 5h / 7d 探测、透支调度、统计和恢复。
+2. **破甲分组**：OpenAI 分组级 `codex_instructions_enabled` / `codex_instructions`，迁移文件为 `224_group_codex_instructions.sql`。
+3. **429 上游断连重连**：对无重置信息或明确 5h-only 的 429，清理账号连接池并在同一账号上最多重试 2 次；7d 耗尽和已有重置时间仍走普通冷却。
 
 ## 基本信息
 
@@ -10,13 +18,13 @@
 - 功能开关：`gateway.codex_quota_overdraft_enabled`
 - 代码默认值：关闭；`deploy/config.example.yaml` 部署示例默认开启
 - Fork 版本文件：`FORK_VERSION`
-- 更新源：`DeanZFC/sub2api-overdraft` 的 `codex-overdraft` 分支
+- 更新源：`Luociqvq/sub2api-overdraft-group-codex` 的 `codex-overdraft` 分支；官方上游建议另存为 `upstream` remote
 
 ## Fork 更新检查
 
 源码 Docker 构建会读取根目录的 `FORK_VERSION`，并以 `BuildType=source` 写入二进制。后台更新服务通过 GitHub Contents API 读取 Fork 分支上的同名文件，使用语义化版本比较判断是否有新版本。Redis 缓存同时记录仓库和构建类型，因此旧的官方更新缓存不会继续生效。
 
-源码构建仅显示 `git pull` 更新提示，`PerformUpdate`、指定版本回退和在线回退列表均被禁用，防止官方二进制覆盖透支功能。维护者每次发布 Fork 更新都必须递增 `FORK_VERSION`；普通补丁使用 `0.1.177-overdraft.2`，同步下一上游版本后使用 `0.1.178-overdraft.1`。
+源码构建仅显示 `git pull` 更新提示，`PerformUpdate`、指定版本回退和在线回退列表均被禁用，防止官方二进制覆盖定制功能。维护者每次发布 Fork 更新都必须递增 `FORK_VERSION`；普通补丁使用 `0.1.177-overdraft.2`，同步下一上游版本后使用 `0.1.178-overdraft.1`。
 
 Sub2API `v0.1.177` 将原生 remote compaction v2 保留在 `/responses` 路径。本定制同时检查旧 Compact 路径和原生 v2 请求信号，二者都不会开启额度透支调度或注入透支请求形态。
 
