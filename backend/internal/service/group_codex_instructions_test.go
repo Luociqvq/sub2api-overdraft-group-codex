@@ -38,8 +38,11 @@ func TestApplyGroupCodexInstructions(t *testing.T) {
 			name: "anthropic prepends system block", endpoint: "messages",
 			body: `{"model":"claude","system":[{"type":"text","text":"client"}]}`,
 			assert: func(t *testing.T, body map[string]any) {
-				blocks := body["system"].([]any)
-				require.Equal(t, "group rules", blocks[0].(map[string]any)["text"])
+				blocks, ok := body["system"].([]any)
+				require.True(t, ok)
+				firstBlock, ok := blocks[0].(map[string]any)
+				require.True(t, ok)
+				require.Equal(t, "group rules", firstBlock["text"])
 			},
 		},
 	}
