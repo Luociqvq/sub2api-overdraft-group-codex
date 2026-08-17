@@ -28,7 +28,7 @@ This fork keeps three independent customization layers. They can be verified and
 - Runs up to five real probes after the reported Codex 5h or 7d quota reaches 100%.
 - Keeps an account schedulable after a successful probe and tracks overdraft requests, tokens, cost, and recovery for both windows independently.
 - Exposes `pending`, `passed`, `failed`, `inconclusive`, and `recovered` states in the admin UI and PostgreSQL.
-- Uses an atomic PostgreSQL claim for multi-instance deployments and requires no schema migration.
+- Uses an atomic PostgreSQL claim for multi-instance deployments; the overdraft state itself requires no additional schema migration.
 - Supports an immediate configuration rollback to the upstream scheduling behavior.
 - **Bounded 429 reconnects:** for eligible headerless or explicit 5h-only quota 429 responses, the gateway closes the selected upstream connection pool and retries the same account at most twice. Explicit 7d exhaustion and reset-known responses keep the normal cooldown path.
 
